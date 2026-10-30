@@ -16,14 +16,14 @@ public static class MainMenu
 
             var choice = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()   //SelectionPrompt är menyn man styr med piltangenter och Enter.
-                    .Title("Va vill du göra?")
+                    .Title("Vad vill du göra?")
                     .AddChoices(
-                        "avsluta"
+                        "Avsluta"
                     ));
 
             switch (choice) //switch är servitören: den tittar på vad du valde och skickar dig till rätt ställe. Varje kort lägger senare till ett eget case.
             {
-                case "avsluta":
+                case "Avsluta":
                     running = false;
                     break;
             }        
