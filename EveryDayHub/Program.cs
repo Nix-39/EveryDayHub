@@ -6,7 +6,7 @@ namespace EveryDayHub
     {
         static void Main(string[] args)
         {
-            AnsiConsole.MarkupLine("[purple]EveryDayHub[/] startar!");
+            AnsiConsole.MarkupLine("[green]EveryDayHub[/] startar!");
         }
     }
 }
