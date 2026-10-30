@@ -1,12 +1,12 @@
 ﻿using Spectre.Console;
 
-namespace EverydayHub
+namespace EveryDayHub
 {
     internal class Program
     {
         static void Main(string[] args)
         {
-            AnsiConsole.MarkupLine("[purple]EverydayHub[/] startar!");
+            AnsiConsole.MarkupLine("[purple]EveryDayHub[/] startar!");
         }
     }
 }
