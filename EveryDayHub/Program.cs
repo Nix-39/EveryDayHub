@@ -1,4 +1,4 @@
-﻿using Spectre.Console;
+﻿using EveryDayHub.UI;
 
 namespace EveryDayHub
 {
@@ -6,7 +6,7 @@ namespace EveryDayHub
     {
         static void Main(string[] args)
         {
-            AnsiConsole.MarkupLine("[green]EveryDayHub[/] startar!");
+            MainMenu.Run();
         }
     }
 }
