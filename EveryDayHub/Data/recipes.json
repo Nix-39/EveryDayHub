@@ -1,0 +1,63 @@
+
+[
+  {
+    "Id": 1,
+    "Name": "Omelette",
+    "Ingredients": ["Eggs", "Tomatoes", "Butter", "Salt"],
+    "Instructions": "Chop the tomatoes, cook them in butter, add beaten eggs and cook until ready."
+  },
+  {
+    "Id": 2,
+    "Name": "Pasta with Tomato Sauce",
+    "Ingredients": ["Pasta", "Tomatoes", "Onion", "Garlic", "Olive oil"],
+    "Instructions": "Boil the pasta. Cook onion, garlic and tomatoes in olive oil, then mix with pasta."
+  },
+  {
+    "Id": 3,
+    "Name": "Chicken Salad",
+    "Ingredients": ["Chicken", "Lettuce", "Cucumber", "Tomatoes"],
+    "Instructions": "Cook the chicken thoroughly, chop the vegetables and mix everything together."
+  },
+  {
+    "Id": 4,
+    "Name": "Vegetable Soup",
+    "Ingredients": ["Potatoes", "Carrots", "Onion", "Water", "Salt"],
+    "Instructions": "Chop the vegetables and simmer in water until soft. Season with salt."
+  },
+  {
+    "Id": 5,
+    "Name": "Grilled Cheese Sandwich",
+    "Ingredients": ["Bread", "Cheese", "Butter"],
+    "Instructions": "Place cheese between bread slices and toast with butter until golden."
+  },
+  {
+    "Id": 6,
+    "Name": "Chicken and Rice",
+    "Ingredients": ["Chicken", "Rice", "Onion", "Salt"],
+    "Instructions": "Cook the rice. Cook the chicken thoroughly with chopped onion and serve together."
+  },
+  {
+    "Id": 7,
+    "Name": "Potato Pancakes",
+    "Ingredients": ["Potatoes", "Eggs", "Flour", "Salt", "Butter"],
+    "Instructions": "Grate potatoes, mix with eggs, flour and salt, then fry in butter."
+  },
+  {
+    "Id": 8,
+    "Name": "Greek Salad",
+    "Ingredients": ["Tomatoes", "Cucumber", "Feta cheese", "Olives", "Olive oil"],
+    "Instructions": "Chop the vegetables, add feta cheese and olives, then drizzle with olive oil."
+  },
+  {
+    "Id": 9,
+    "Name": "Beef Stir-Fry",
+    "Ingredients": ["Beef", "Bell pepper", "Onion", "Soy sauce", "Oil"],
+    "Instructions": "Slice the beef and vegetables, stir-fry until the beef is fully cooked and add soy sauce."
+  },
+  {
+    "Id": 10,
+    "Name": "Scrambled Eggs",
+    "Ingredients": ["Eggs", "Milk", "Butter", "Salt"],
+    "Instructions": "Beat eggs with milk and salt, then cook gently in butter while stirring."
+  }
+]
