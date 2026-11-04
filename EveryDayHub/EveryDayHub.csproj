@@ -11,4 +11,10 @@
     <PackageReference Include="Spectre.Console" Version="0.57.2" />
   </ItemGroup>
 
+<ItemGroup>
+  <!-- Copy recipes.json to the output folder only when the source file is newer -->
+  <None Update="Data/recipes.json" CopyToOutputDirectory="PreserveNewest" />
+</ItemGroup>
+
+
 </Project>
