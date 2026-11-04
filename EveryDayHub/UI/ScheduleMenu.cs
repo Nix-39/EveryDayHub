@@ -17,6 +17,7 @@ public static class ScheduleMenu
                 new SelectionPrompt<string>()
                     .Title("Schedule - what do you want to do?")
                     .AddChoices(
+                        "Show week",
                         "Add work shift",
                         "Add activity",
                         "Back"
@@ -24,6 +25,9 @@ public static class ScheduleMenu
 
             switch (choice)
             {
+                case "Show week":
+                    ShowWeek(boardStore, memberStore);
+                    break;
                 case "Add work shift":
                     AddWorkShift(boardStore, memberStore);
                     break;
@@ -35,6 +39,78 @@ public static class ScheduleMenu
                     break;
             }
         }
+    }
+
+    private static void ShowWeek(DataStore<BoardItem> boardStore, DataStore<FamilyMember> memberStore)
+    {
+        List<FamilyMember> members = memberStore.GetAll();
+
+        if (members.Count == 0)
+        {
+            Messages.Error("There are no family members yet. Add a family member first.");
+            Pause();
+            return;
+        }
+
+        DateTime anyDay = AskDate("Show the week of (yyyy-MM-dd):");
+        DateTime monday = StartOfWeek(anyDay);
+        List<BoardItem> items = boardStore.GetAll();
+
+        Table table = new Table().Border(TableBorder.Rounded);
+        table.AddColumn("Person");
+
+        for (int i = 0; i < 7; i++)
+        {
+            DateTime day = monday.AddDays(i);
+            table.AddColumn(day.ToString("ddd dd/MM", CultureInfo.InvariantCulture));
+        }
+
+        foreach (FamilyMember member in members)
+        {
+            string[] cells = new string[8];
+            cells[0] = $"[bold]{Markup.Escape(member.Name)}[/]";
+
+            for (int i = 0; i < 7; i++)
+            {
+                cells[i + 1] = BuildCell(items, member, monday.AddDays(i));
+            }
+
+            table.AddRow(cells);
+        }
+
+        AnsiConsole.MarkupLine($"[bold]Week of {monday:yyyy-MM-dd}[/]");
+        AnsiConsole.Write(table);
+        AnsiConsole.MarkupLine("[yellow]Work shift[/]   [aqua]Activity[/]");
+        Pause();
+    }
+
+    // Monday of the week that the given date belongs to
+    private static DateTime StartOfWeek(DateTime date)
+    {
+        int daysSinceMonday = ((int)date.DayOfWeek + 6) % 7;
+        return date.Date.AddDays(-daysSinceMonday);
+    }
+
+    // Builds the text for one cell: all work shifts and activities for one person on one day
+    private static string BuildCell(List<BoardItem> items, FamilyMember person, DateTime day)
+    {
+        List<string> lines = new List<string>();
+
+        foreach (WorkShift shift in items.OfType<WorkShift>()
+            .Where(s => s.FamilyMemberId == person.Id && s.Start.Date == day.Date)
+            .OrderBy(s => s.Start))
+        {
+            lines.Add($"[yellow]{shift.Start:HH:mm}-{shift.End:HH:mm}[/]");
+        }
+
+        foreach (Activity activity in items.OfType<Activity>()
+            .Where(a => a.ParticipantIds.Contains(person.Id) && a.Start.Date == day.Date)
+            .OrderBy(a => a.Start))
+        {
+            lines.Add($"[aqua]{Markup.Escape(activity.Title)} {activity.Start:HH:mm}[/]");
+        }
+
+        return string.Join("\n", lines);
     }
 
     private static void AddWorkShift(DataStore<BoardItem> boardStore, DataStore<FamilyMember> memberStore)
