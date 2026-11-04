@@ -18,6 +18,7 @@ public static class ScheduleMenu
                     .Title("Schedule - what do you want to do?")
                     .AddChoices(
                         "Add work shift",
+                        "Add activity",
                         "Back"
                     ));
 
@@ -25,6 +26,9 @@ public static class ScheduleMenu
             {
                 case "Add work shift":
                     AddWorkShift(boardStore, memberStore);
+                    break;
+                case "Add activity":
+                    AddActivity(boardStore, memberStore);
                     break;
                 case "Back":
                     running = false;
@@ -77,6 +81,54 @@ public static class ScheduleMenu
 
         boardStore.AddItem(shift);
         Messages.Success($"Work shift saved: {shift.Describe()}");
+        Pause();
+    }
+
+    private static void AddActivity(DataStore<BoardItem> boardStore, DataStore<FamilyMember> memberStore)
+    {
+        List<FamilyMember> members = memberStore.GetAll();
+
+        if (members.Count == 0)
+        {
+            Messages.Error("There are no family members yet. Add a family member first.");
+            Pause();
+            return;
+        }
+
+        string title = AnsiConsole.Prompt(new TextPrompt<string>("Title:"));
+        string location = AnsiConsole.Prompt(new TextPrompt<string>("Location:"));
+
+        DateTime date = AskDate("Date (yyyy-MM-dd):");
+        TimeSpan start = AskTime("Start time (HH:mm):");
+        TimeSpan end = AskTime("End time (HH:mm):");
+
+        while (end <= start)
+        {
+            Messages.Error("The end time must be after the start time.");
+            end = AskTime("End time (HH:mm):");
+        }
+
+        List<FamilyMember> participants = AnsiConsole.Prompt(
+            new MultiSelectionPrompt<FamilyMember>()
+                .Title("Who is taking part?")
+                .InstructionsText("[grey](Press [blue]<space>[/] to select, [green]<enter>[/] to accept)[/]")
+                .UseConverter(member => Markup.Escape(member.Name))
+                .AddChoices(members));
+
+        Activity activity = new Activity
+        {
+            Id = NextId(boardStore),
+            Title = title,
+            Date = date.Date,
+            CreatedById = participants[0].Id,
+            Location = location,
+            Start = date.Date + start,
+            End = date.Date + end,
+            ParticipantIds = participants.Select(person => person.Id).ToList()
+        };
+
+        boardStore.AddItem(activity);
+        Messages.Success($"Activity saved: {activity.Describe()}");
         Pause();
     }
 
