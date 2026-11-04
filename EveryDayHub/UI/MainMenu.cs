@@ -5,34 +5,38 @@ namespace EveryDayHub.UI;
 
 public static class MainMenu
 {
-    public static void Run()
-    {
-        
-        bool running = true;
+	public static void Run()
+	{
 
-        while (running)  //while (running) upprepar menyn tills någon väljer Avsluta. Utan loopen stänger programmet efter första valet.
-        {
-            StartScreen.Show();
+		bool running = true;
 
-            var choice = AnsiConsole.Prompt(
-                new SelectionPrompt<string>()   //SelectionPrompt är menyn man styr med piltangenter och Enter.
-                    .Title("Vad vill du göra?")
-                    .AddChoices(
-                        "Avsluta"
-                    ));
+		while (running)  //while (running) upprepar menyn tills någon väljer Avsluta. Utan loopen stänger programmet efter första valet.
+		{
+			StartScreen.Show();
 
-            switch (choice) //switch är servitören: den tittar på vad du valde och skickar dig till rätt ställe. Varje kort lägger senare till ett eget case.
-            {
-                case "Avsluta":
-                    running = false;
-                    break;
-            }        
+			var choice = AnsiConsole.Prompt(
+				new SelectionPrompt<string>()   //SelectionPrompt är menyn man styr med piltangenter och Enter.
+					.Title("Vad vill du göra?")
+					.AddChoices(
+						"Kylskåpet",
+						"Avsluta"
+					));
 
-        }
+			switch (choice) //switch är servitören: den tittar på vad du valde och skickar dig till rätt ställe. Varje kort lägger senare till ett eget case.
+			{
+				case "Kylskåpet":
+					FridgeMenu.Run();
+					break;
+				case "Avsluta":
+					running = false;
+					break;
+			}
 
-        AnsiConsole.MarkupLine("[green]Hej då![/]");
+		}
 
-    }
+		AnsiConsole.MarkupLine("[green]Hej då![/]");
+
+	}
 
 
 }
