@@ -1,7 +1,10 @@
+
 namespace EveryDayHub.Models
 {
-    // Represents vegetables such as carrots, tomatoes, and potatoes
-    public class Vegetable : FoodItem
+    // Represents vegetables stored in the fridge
+    public class Vegetable : FridgeItem
     {
+        // Warn two days before expiration
+        public override int WarningDays => 2;
     }
 }

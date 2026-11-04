@@ -1,7 +1,10 @@
+
 namespace EveryDayHub.Models
 {
-    // Represents dairy products such as milk, cheese, and yogurt
-    public class Dairy : FoodItem
+    // Represents dairy products stored in the fridge
+    public class Dairy : FridgeItem
     {
+        // Warn three days before expiration
+        public override int WarningDays => 3;
     }
 }

@@ -1,7 +1,14 @@
 
+using System.Text.Json.Serialization;
+
 namespace EveryDayHub.Models
 {
-    // Abstract base class for all food items
+    // Abstract base class for everything that can be at home
+    [JsonPolymorphic]
+    [JsonDerivedType(typeof(Dairy), "dairy")]
+    [JsonDerivedType(typeof(Vegetable), "vegetable")]
+    [JsonDerivedType(typeof(Meat), "meat")]
+    [JsonDerivedType(typeof(Pantry), "pantry")]
     public abstract class FoodItem
     {
         // Unique identifier for each food item
@@ -10,10 +17,7 @@ namespace EveryDayHub.Models
         // Name of the food item
         public string Name { get; set; } = "";
 
-        // Quantity of the food item
-        public int Quantity { get; set; }
-
-        // Expiration date of the food item
-        public DateTime ExpirationDate { get; set; }
+        // True if the item is available at home
+        public abstract bool IsAvailable { get; }
     }
 }
