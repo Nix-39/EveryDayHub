@@ -1,5 +1,12 @@
+using System.Text.Json.Serialization;
+
 namespace EveryDayHub.Models;
 
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
+[JsonDerivedType(typeof(WorkShift), "workshift")]
+[JsonDerivedType(typeof(Activity), "activity")]
+// Note will be added here by Alper in card 3:
+// [JsonDerivedType(typeof(Note), "note")]
 public abstract class BoardItem
 {
     public int Id { get; set; }
