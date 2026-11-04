@@ -1,3 +1,4 @@
+
 namespace EveryDayHub.Models
 {
     // Represents a recipe with its ingredients and cooking instructions
@@ -14,5 +15,8 @@ namespace EveryDayHub.Models
 
         // Instructions for preparing the recipe
         public string Instructions { get; set; } = "";
+
+        // Cooking time in minutes
+        public int CookingTimeMinutes { get; set; }
     }
 }
