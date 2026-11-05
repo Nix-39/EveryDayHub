@@ -46,7 +46,8 @@ public static class FridgeMenu
 					break;
 
 				case "Ta bort matvara":
-					AnsiConsole.MarkupLine("[yellow]Ta bort kommer snart.[/]");
+					DeleteFoodItem();
+					Pause.Wait();
 					break;
 
 				case "Tillbaka":
@@ -119,6 +120,66 @@ public static class FridgeMenu
 		{
 			AnsiConsole.MarkupLine(
 				$"[red]Kunde inte spara ändringen: {Markup.Escape(_foodStore.LastError)}[/]"
+			);
+		}
+	}
+	private static void DeleteFoodItem()
+	{
+		// Get all existing food items
+		var items = _foodStore.GetAll();
+
+		// Check if there are any items to delete
+		if (items.Count == 0)
+
+		{
+			AnsiConsole.MarkupLine(
+				"[yellow]Det finns inga matvaror att ta bort.[/]"
+			);
+			return;
+		}
+		// Let the user select a food item to delete
+		var selectedItem = AnsiConsole.Prompt(
+			new SelectionPrompt<FoodItem>()
+				.Title("Välj matvara att ta bort:")
+				.UseConverter(item => $"{item.Id} - {item.Name}")
+				.AddChoices(items)
+		);
+		// Ask the user to confirm deletion
+		bool confirmDelete = AnsiConsole.Confirm(
+			$"Är du säker på att du vill ta bort {Markup.Escape(selectedItem.Name)}?"
+		);
+
+		if (!confirmDelete)
+		{
+			AnsiConsole.MarkupLine(
+				"[yellow]Borttagningen avbröts.[/]"
+			);
+			return;
+		}
+		// Remove the selected food item
+		bool isRemoved = _foodStore.RemoveItem(selectedItem);
+
+		if (isRemoved)
+		{
+			// Save the updated list after removing the item
+			if (_foodStore.SaveToJson())
+			{
+				AnsiConsole.MarkupLine(
+					"[green]Matvaran har tagits bort![/]"
+				);
+			}
+			else
+			{
+				AnsiConsole.MarkupLine(
+					$"[red]Kunde inte spara ändringen: {Markup.Escape(_foodStore.LastError)}[/]"
+				);
+			}
+
+		}
+		else
+		{
+			AnsiConsole.MarkupLine(
+				"[red]Kunde inte ta bort matvaran.[/]"
 			);
 		}
 	}
