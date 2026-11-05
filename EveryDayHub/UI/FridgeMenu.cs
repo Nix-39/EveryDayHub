@@ -41,7 +41,8 @@ public static class FridgeMenu
 					break;
 
 				case "Ändra matvara":
-					AnsiConsole.MarkupLine("[yellow]Ändra kommer snart.[/]");
+					EditFoodItem();
+					Pause.Wait();
 					break;
 
 				case "Ta bort matvara":
@@ -52,6 +53,73 @@ public static class FridgeMenu
 					running = false;
 					break;
 			}
+		}
+
+	}
+	private static void EditFoodItem()
+	{
+		// Get all existing food items
+		var items = _foodStore.GetAll();
+
+		// Check if there are any items to edit
+		if (items.Count == 0)
+		{
+			AnsiConsole.MarkupLine(
+				"[yellow]Det finns inga matvaror att ändra.[/]"
+			);
+			return;
+		}
+
+		// Let the user select a food item to edit
+		var selectedItem = AnsiConsole.Prompt(
+			new SelectionPrompt<FoodItem>()
+				.Title("Välj matvara att ändra:")
+				.UseConverter(item => $"{item.Id} - {item.Name}")
+				.AddChoices(items)
+		);
+
+		// Check if the selected item is stored in the fridge
+		if (selectedItem is FridgeItem fridgeItem)
+		{
+			// Ask for a valid new quantity
+			int newQuantity;
+
+			do
+			{
+				newQuantity = AnsiConsole.Ask<int>("Ange nytt antal:");
+
+				if (newQuantity < 0)
+				{
+					AnsiConsole.MarkupLine(
+						"[red]Antalet kan inte vara negativt.[/]"
+					);
+				}
+			}
+			while (newQuantity < 0);
+
+			// Update the selected item's quantity
+			fridgeItem.Quantity = newQuantity;
+		}
+		// Edit the availability of a pantry item
+		else if (selectedItem is Pantry pantryItem)
+		{
+			pantryItem.InStock = AnsiConsole.Confirm(
+				"Finns matvaran hemma?"
+			);
+		}
+
+		// Save the updated food item to JSON
+		if (_foodStore.SaveToJson())
+		{
+			AnsiConsole.MarkupLine(
+				"[green]Matvaran har uppdaterats![/]"
+			);
+		}
+		else
+		{
+			AnsiConsole.MarkupLine(
+				$"[red]Kunde inte spara ändringen: {Markup.Escape(_foodStore.LastError)}[/]"
+			);
 		}
 	}
 	private static void ShowAllItems()
