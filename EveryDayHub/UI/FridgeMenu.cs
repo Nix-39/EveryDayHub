@@ -10,7 +10,18 @@ public static class FridgeMenu
 		new DataStore<FoodItem>("Data/fooditems.json");
 	public static void Run()
 	{// Load saved food items when opening the fridge menu
-		_foodStore.LoadFromJson();
+	 // Load existing data or start with an empty fridge
+		if (File.Exists("Data/fooditems.json"))
+		{
+			if (!_foodStore.LoadFromJson())
+			{
+				AnsiConsole.MarkupLine(
+					$"[red]Kunde inte läsa matvarorna: {Markup.Escape(_foodStore.LastError)}[/]"
+				);
+				Pause.Wait();
+				return;
+			}
+		}
 		bool running = true;
 
 		while (running)
