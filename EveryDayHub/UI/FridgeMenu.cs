@@ -200,13 +200,29 @@ public static class FridgeMenu
 		table.AddColumn("Namn");
 		table.AddColumn("Typ");
 		table.AddColumn("Tillgänglig");
+		// Show quantity and expiration date
+		table.AddColumn("Antal");
+		table.AddColumn("Utgångsdatum");
 
 		foreach (var item in items)
 		{
+			// Get quantity and expiration date for fridge items
+			string quantity = "-";
+			string expirationDate = "-";
+
+			if (item is FridgeItem fridgeItem)
+			{
+				quantity = fridgeItem.Quantity.ToString();
+				expirationDate = fridgeItem.ExpirationDate.ToString("yyyy-MM-dd");
+			}
+
+			// Add the food item to the table
 			table.AddRow(
 				item.Name,
 				item.GetType().Name,
-				item.IsAvailable ? "Ja" : "Nej"
+				item.IsAvailable ? "Ja" : "Nej",
+				quantity,
+				expirationDate
 			);
 		}
 
