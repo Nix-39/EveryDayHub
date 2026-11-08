@@ -35,6 +35,7 @@ public static class FridgeMenu
 						"Lägg till matvara",
 						"Ändra matvara",
 						"Ta bort matvara",
+						"Bäst före-koll",
 						"Tillbaka"
 					));
 
@@ -58,6 +59,11 @@ public static class FridgeMenu
 
 				case "Ta bort matvara":
 					DeleteFoodItem();
+					Pause.Wait();
+					break;
+
+				case "Bäst före-koll":
+					ShowExpirationWarnings();
 					Pause.Wait();
 					break;
 
@@ -379,6 +385,53 @@ public static class FridgeMenu
 			AnsiConsole.MarkupLine(
 				$"[red]Kunde inte spara matvaran: {Markup.Escape(_foodStore.LastError)}[/]"
 			);
+		}
+	}
+	// Show food items that are expired or close to expiration
+	private static void ShowExpirationWarnings()
+	{
+		var fridgeItems = _foodStore.GetAll()
+			.OfType<FridgeItem>()
+			.Where(item =>
+				item.ExpirationDate.Date <=
+				DateTime.Today.AddDays(item.WarningDays))
+			.OrderBy(item => item.ExpirationDate)
+			.ToList();
+		// Show a message if there are no expiration warnings
+		if (fridgeItems.Count == 0)
+		{
+			AnsiConsole.MarkupLine(
+				"[green]Inga matvaror behöver kontrolleras just nu.[/]"
+			);
+			return;
+		}
+		// Create a table for expiration warnings
+		var table = new Table();
+
+		table.AddColumn("Matvara");
+		table.AddColumn("Utgångsdatum");
+		table.AddColumn("Status");
+		// Add each food item to the warning table
+		foreach (var item in fridgeItems)
+		{
+			string status;
+
+			if (item.ExpirationDate.Date < DateTime.Today)
+			{
+				status = "[red]Passerat - kontrollera varan[/]";
+			}
+			else
+			{
+				status = "[yellow]Snart - kontrollera varan[/]";
+			}
+
+			table.AddRow(
+				Markup.Escape(item.Name),
+				item.ExpirationDate.ToString("yyyy-MM-dd"),
+				status
+			);
+			// Display the expiration warning table
+			AnsiConsole.Write(table);
 		}
 	}
 
