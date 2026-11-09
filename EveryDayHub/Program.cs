@@ -60,6 +60,21 @@ namespace EveryDayHub
 
             // Visa menyn. Den använder lådan som precis laddades.
             MainMenu.Run(notesStore);
+
+
+            // SPARA VID AVSLUT: spinner
+            // Status() visar en text med en snurrande symbol medan koden inuti körs.
+            AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)        // hur symbolen ser ut
+                .Start("Sparar data...", ctx =>     // texten bredvid symbolen
+                {
+                    // Skriv lapparna till filen. Returnerar false om något gick fel.
+                    // Resultatet kontrolleras först i steg 5.
+                    notesStore.SaveToJson();
+
+                    // Kort paus så att du hinner se spinnern. Tas bort i steg 6.
+                    Thread.Sleep(800);
+                });
         }
     }
 }
