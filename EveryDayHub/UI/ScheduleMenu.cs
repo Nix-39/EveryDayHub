@@ -19,6 +19,7 @@ public static class ScheduleMenu
                     .AddChoices(
                         "Show week",
                         "Filter schedule",
+                        "Who is free?",
                         "Add work shift",
                         "Add activity",
                         "Edit",
@@ -33,6 +34,9 @@ public static class ScheduleMenu
                     break;
                 case "Filter schedule":
                     Filter(boardStore, memberStore);
+                    break;
+                case "Who is free?":
+                    ShowFree(boardStore, memberStore);
                     break;
                 case "Add work shift":
                     AddWorkShift(boardStore, memberStore);
@@ -185,6 +189,70 @@ public static class ScheduleMenu
         }
 
         AnsiConsole.Write(table);
+        Pause();
+    }
+
+    // Shows who is free and who is busy on a chosen day
+    private static void ShowFree(DataStore<BoardItem> boardStore, DataStore<FamilyMember> memberStore)
+    {
+        List<FamilyMember> members = memberStore.GetAll();
+
+        if (members.Count == 0)
+        {
+            Messages.Error("There are no family members yet. Add a family member first.");
+            Pause();
+            return;
+        }
+
+        DateTime day = AskDate("Day (yyyy-MM-dd):");
+
+        // Sieve once: only work shifts and activities that happen on the chosen day
+        List<BoardItem> dayItems = boardStore.GetAll()
+            .Where(item => item is WorkShift || item is Activity)
+            .Where(item => StartOf(item).Date == day.Date)
+            .OrderBy(item => StartOf(item))
+            .ToList();
+
+        Table table = new Table().Border(TableBorder.Rounded);
+        table.AddColumn("Person");
+        table.AddColumn("Status");
+        table.AddColumn("Booked");
+
+        List<string> freeNames = new List<string>();
+
+        foreach (FamilyMember member in members)
+        {
+            // A person is free if nothing on that day involves them
+            List<BoardItem> memberItems = dayItems
+                .Where(item => InvolvesPerson(item, member.Id))
+                .ToList();
+
+            if (memberItems.Count == 0)
+            {
+                freeNames.Add(member.Name);
+                table.AddRow(Markup.Escape(member.Name), "[green]Free[/]", "");
+            }
+            else
+            {
+                string booked = string.Join("\n", memberItems.Select(item =>
+                    Markup.Escape($"{StartOf(item):HH:mm}-{EndOf(item):HH:mm} {WhatText(item)}")));
+
+                table.AddRow(Markup.Escape(member.Name), "[red]Busy[/]", booked);
+            }
+        }
+
+        AnsiConsole.MarkupLine($"[bold]Who is free on {day:yyyy-MM-dd}?[/]");
+        AnsiConsole.Write(table);
+
+        if (freeNames.Count == 0)
+        {
+            Messages.Info("Nobody is free that day.");
+        }
+        else
+        {
+            Messages.Info($"Free: {string.Join(", ", freeNames)}");
+        }
+
         Pause();
     }
 
