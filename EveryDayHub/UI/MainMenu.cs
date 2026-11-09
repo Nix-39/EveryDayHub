@@ -18,13 +18,17 @@ public static class MainMenu
 				new SelectionPrompt<string>()   //SelectionPrompt är menyn man styr med piltangenter och Enter.
 					.Title("Vad vill du göra?")
 					.AddChoices(
-						"Kylskåpet",
+						"Familjen",
+                        "Kylskåpet",
 						"Avsluta"
 					));
 
 			switch (choice) //switch är servitören: den tittar på vad du valde och skickar dig till rätt ställe. Varje kort lägger senare till ett eget case.
 			{
-				case "Kylskåpet":
+				case "Familjen":
+                    FamilyMenu.Run();
+                    break;
+                case "Kylskåpet":
 					FridgeMenu.Run();
 					break;
 				case "Avsluta":
