@@ -1,0 +1,72 @@
+[
+  {
+    "Id": 1,
+    "Name": "Omelett",
+    "Ingredients": ["ägg", "tomat", "smör", "salt"],
+    "Instructions": "Hacka tomaten och stek den i smör. Tillsätt uppvispade ägg och stek tills omeletten är klar.",
+    "CookingTimeMinutes": 15
+  },
+  {
+    "Id": 2,
+    "Name": "Pasta med tomatsås",
+    "Ingredients": ["pasta", "tomat", "lök", "vitlök", "olivolja"],
+    "Instructions": "Koka pastan. Fräs lök och vitlök i olivolja, tillsätt tomat och låt sjuda. Blanda med pastan.",
+    "CookingTimeMinutes": 25
+  },
+  {
+    "Id": 3,
+    "Name": "Kycklingsallad",
+    "Ingredients": ["kyckling", "sallad", "gurka", "tomat"],
+    "Instructions": "Tillaga kycklingen helt genomstekt. Hacka grönsakerna och blanda allt i en skål.",
+    "CookingTimeMinutes": 25
+  },
+  {
+    "Id": 4,
+    "Name": "Grönsakssoppa",
+    "Ingredients": ["potatis", "morot", "lök", "vatten", "salt"],
+    "Instructions": "Skär grönsakerna i bitar och låt dem sjuda i vatten tills de är mjuka. Smaka av med salt.",
+    "CookingTimeMinutes": 35
+  },
+  {
+    "Id": 5,
+    "Name": "Grillad ostsmörgås",
+    "Ingredients": ["bröd", "ost", "smör"],
+    "Instructions": "Lägg ost mellan två brödskivor och stek smörgåsen i smör tills den är gyllenbrun.",
+    "CookingTimeMinutes": 10
+  },
+  {
+    "Id": 6,
+    "Name": "Kyckling med ris",
+    "Ingredients": ["kyckling", "ris", "lök", "salt"],
+    "Instructions": "Koka riset. Stek kycklingen helt genomstekt tillsammans med hackad lök och servera med ris.",
+    "CookingTimeMinutes": 40
+  },
+  {
+    "Id": 7,
+    "Name": "Potatisplättar",
+    "Ingredients": ["potatis", "ägg", "mjöl", "salt", "smör"],
+    "Instructions": "Riv potatisen och blanda med ägg, mjöl och salt. Stek små plättar i smör tills de är gyllenbruna.",
+    "CookingTimeMinutes": 30
+  },
+  {
+    "Id": 8,
+    "Name": "Grekisk sallad",
+    "Ingredients": ["tomat", "gurka", "fetaost", "oliv", "olivolja"],
+    "Instructions": "Hacka tomat och gurka. Tillsätt fetaost och oliver och ringla över olivolja.",
+    "CookingTimeMinutes": 15
+  },
+  {
+    "Id": 9,
+    "Name": "Wok med nötkött",
+    "Ingredients": ["nötkött", "paprika", "lök", "sojasås", "olja"],
+    "Instructions": "Skär nötkött och grönsaker i tunna strimlor. Woka tills köttet är genomstekt och tillsätt sojasås.",
+    "CookingTimeMinutes": 25
+  },
+  {
+    "Id": 10,
+    "Name": "Äggröra",
+    "Ingredients": ["ägg", "mjölk", "smör", "salt"],
+    "Instructions": "Vispa ägg med mjölk och salt. Tillaga på låg värme i smör under ständig omrörning.",
+    "CookingTimeMinutes": 10
+  }
+]
