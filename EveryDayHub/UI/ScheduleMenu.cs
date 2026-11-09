@@ -21,6 +21,7 @@ public static class ScheduleMenu
                         "Add work shift",
                         "Add activity",
                         "Edit",
+                        "Remove",
                         "Back"
                     ));
 
@@ -37,6 +38,9 @@ public static class ScheduleMenu
                     break;
                 case "Edit":
                     Edit(boardStore, memberStore);
+                    break;
+                case "Remove":
+                    Remove(boardStore);
                     break;
                 case "Back":
                     running = false;
@@ -214,37 +218,12 @@ public static class ScheduleMenu
 
     private static void Edit(DataStore<BoardItem> boardStore, DataStore<FamilyMember> memberStore)
     {
-        // Only work shifts and activities can be edited here (notes belong to the notes menu)
-        List<BoardItem> editable = boardStore.GetAll()
-            .Where(item => item is WorkShift || item is Activity)
-            .OrderBy(item => StartOf(item))
-            .ToList();
+        BoardItem? chosen = ChooseItem(boardStore, "What do you want to edit?");
 
-        if (editable.Count == 0)
-        {
-            Messages.Info("There is nothing to edit yet.");
-            Pause();
-            return;
-        }
-
-        List<string> labels = editable
-            .Select(item => $"{item.Id}: {StartOf(item):yyyy-MM-dd} {item.Describe()}")
-            .ToList();
-        labels.Add("Cancel");
-
-        string selected = AnsiConsole.Prompt(
-            new SelectionPrompt<string>()
-                .Title("What do you want to edit?")
-                .PageSize(10)
-                .UseConverter(label => Markup.Escape(label))
-                .AddChoices(labels));
-
-        if (selected == "Cancel")
+        if (chosen == null)
         {
             return;
         }
-
-        BoardItem chosen = editable[labels.IndexOf(selected)];
 
         if (chosen is WorkShift shift)
         {
@@ -254,6 +233,71 @@ public static class ScheduleMenu
         {
             EditActivity(activity, memberStore);
         }
+    }
+
+    private static void Remove(DataStore<BoardItem> boardStore)
+    {
+        BoardItem? chosen = ChooseItem(boardStore, "What do you want to remove?");
+
+        if (chosen == null)
+        {
+            return;
+        }
+
+        if (!AnsiConsole.Confirm($"Remove {Markup.Escape(chosen.Describe())}?", false))
+        {
+            Messages.Info("Nothing was removed.");
+            Pause();
+            return;
+        }
+
+        if (boardStore.RemoveItem(chosen))
+        {
+            Messages.Success("Removed.");
+        }
+        else
+        {
+            Messages.Error("Could not remove the item.");
+        }
+
+        Pause();
+    }
+
+    // Lets the user pick a work shift or an activity from a list.
+    // Returns null if there is nothing to pick or if the user cancels.
+    private static BoardItem? ChooseItem(DataStore<BoardItem> boardStore, string title)
+    {
+        // Only work shifts and activities are listed (notes belong to the notes menu)
+        List<BoardItem> choices = boardStore.GetAll()
+            .Where(item => item is WorkShift || item is Activity)
+            .OrderBy(item => StartOf(item))
+            .ToList();
+
+        if (choices.Count == 0)
+        {
+            Messages.Info("There are no work shifts or activities yet.");
+            Pause();
+            return null;
+        }
+
+        List<string> labels = choices
+            .Select(item => $"{item.Id}: {StartOf(item):yyyy-MM-dd} {item.Describe()}")
+            .ToList();
+        labels.Add("Cancel");
+
+        string selected = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title(title)
+                .PageSize(10)
+                .UseConverter(label => Markup.Escape(label))
+                .AddChoices(labels));
+
+        if (selected == "Cancel")
+        {
+            return null;
+        }
+
+        return choices[labels.IndexOf(selected)];
     }
 
     private static void EditWorkShift(WorkShift shift, DataStore<FamilyMember> memberStore)
