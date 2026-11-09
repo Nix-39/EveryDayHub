@@ -7,42 +7,83 @@ namespace EveryDayHub.UI;
 
 public static class MainMenu
 {
+public static class MainMenu
+{
     public static void Run()
     {
+        // Flagga som styr loopen. När den blir false stängs programmet.
         bool running = true;
 
-        // Skapa lådan där lapparna ligger.
+        // Skapa lådan där lapparna ligger. Den skapas EN gång, före loopen,
+        // annars blir den tom varje gång menyn visas.
         var notesStore = new DataStore<Note>("");
 
+        // Skapa lapp-menyn och ge den lådan.
         var notesMenu = new NotesMenu(notesStore);
 
-        while (running)  //while (running) upprepar menyn tills någon väljer Avsluta. Utan loopen stänger programmet efter första valet.
+        while (running)  // upprepar menyn tills någon väljer Avsluta
         {
             StartScreen.Show();
 
             var choice = AnsiConsole.Prompt(
-                new SelectionPrompt<string>()   //SelectionPrompt är menyn man styr med piltangenter och Enter.
+                new SelectionPrompt<string>()   // menyn man styr med piltangenter och Enter
                     .Title("Vad vill du göra?")
                     .AddChoices(
-                        "Lappar", // NYTT: valet som leder till lapp-menyn
-                        "Avsluta" // Avsluta ligger alltid sist i menyn, så man kan trycka Enter direkt om man vill stänga programmet.
+                        "Lappar",       // ditt val (kort 9)
+                        "Kylskåpet",    // P3:s val (kort 10)
+                        "Avsluta"       // ligger alltid sist
                     ));
 
-            switch (choice) //switch är servitören: den tittar på vad du valde och skickar dig till rätt ställe. Varje kort lägger senare till ett eget case.
+            switch (choice) // skickar dig till rätt ställe beroende på valet
             {
-                case "Lappar": // NYTT: valet som leder till lapp-menyn
-                    notesMenu.Show();
+                case "Lappar":
+                    notesMenu.Show();   // öppnar lapp-menyn
+                    break;
+                case "Kylskåpet":
+                    FridgeMenu.Run();   // öppnar P3:s kylskåpsmeny
                     break;
                 case "Avsluta":
-                    running = false;
+                    running = false;    // avslutar loopen
                     break;
-            }        
-
+            }
         }
 
         AnsiConsole.MarkupLine("[green]Hej då![/]");
-
     }
-    
+}
+	public static void Run()
+	{
+
+		bool running = true;
+
+		while (running)  //while (running) upprepar menyn tills någon väljer Avsluta. Utan loopen stänger programmet efter första valet.
+		{
+			StartScreen.Show();
+
+			var choice = AnsiConsole.Prompt(
+				new SelectionPrompt<string>()   //SelectionPrompt är menyn man styr med piltangenter och Enter.
+					.Title("Vad vill du göra?")
+					.AddChoices(
+						"Kylskåpet",
+						"Avsluta"
+					));
+
+			switch (choice) //switch är servitören: den tittar på vad du valde och skickar dig till rätt ställe. Varje kort lägger senare till ett eget case.
+			{
+				case "Kylskåpet":
+					FridgeMenu.Run();
+					break;
+				case "Avsluta":
+					running = false;
+					break;
+			}
+
+		}
+
+		AnsiConsole.MarkupLine("[green]Hej då![/]");
+
+	}
+
+
 
 }
