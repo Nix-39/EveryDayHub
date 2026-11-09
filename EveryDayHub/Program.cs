@@ -1,10 +1,10 @@
 ﻿using System;                   // AppContext, Console
-using System.IO;                // Path, File
+using System.IO;                // Path, File, Directory
 using EveryDayHub.Models;       // klassen Note
 using EveryDayHub.Services;     // klassen DataStore<T>
 using EveryDayHub.UI;           // klassen MainMenu
 using System.Threading;         // Thread.Sleep
-using Spectre.Console;          // progress bar och färger
+using Spectre.Console;          // progress bar, spinner och färger
 
 namespace EveryDayHub
 {
@@ -22,7 +22,6 @@ namespace EveryDayHub
             var notesStore = new DataStore<Note>(notesPath);
 
             // LADDA VID START: progress bar 
-            // Felmeddelandet sparas här och skrivs ut när balken är klar.
             string loadError = "";
 
             AnsiConsole.Progress().Start(ctx =>
@@ -40,7 +39,6 @@ namespace EveryDayHub
                     }
                 }
 
-                // Kort paus så att du hinner se balken. Tas bort i steg 6.
                 Thread.Sleep(500);
 
                 // Fyll balken till 100 %.
@@ -48,7 +46,6 @@ namespace EveryDayHub
             });
 
             // Om något gick fel: skriv ut felet i rött.
-            // Markup.Escape skyddar mot att tecken som [ i felmeddelandet tolkas som färgkoder.
             if (loadError != "")
             {
                 AnsiConsole.MarkupLine($"[red]{Markup.Escape(loadError)}[/]");
@@ -58,23 +55,44 @@ namespace EveryDayHub
                 Console.ReadKey(true);
             }
 
-            // Visa menyn. Den använder lådan som precis laddades.
+            // MENYN 
+            // Programmet fortsätter på nästa rad först när användaren väljer Avsluta.
             MainMenu.Run(notesStore);
 
 
-            // SPARA VID AVSLUT: spinner
-            // Status() visar en text med en snurrande symbol medan koden inuti körs.
+            //  SPARA VID AVSLUT: spinner 
+            // Felmeddelandet sparas här och skrivs ut när spinnern är klar.
+            string saveError = "";
+
             AnsiConsole.Status()
                 .Spinner(Spinner.Known.Dots)        // hur symbolen ser ut
                 .Start("Sparar data...", ctx =>     // texten bredvid symbolen
                 {
-                    // Skriv lapparna till filen. Returnerar false om något gick fel.
-                    // Resultatet kontrolleras först i steg 5.
-                    notesStore.SaveToJson();
+                    // DataStore skapar inte mappen själv, så vi gör det.
+                    // Finns den redan händer ingenting.
+                    Directory.CreateDirectory(dataFolder);
 
-                    // Kort paus så att du hinner se spinnern. Tas bort i steg 6.
+                    // SaveToJson returnerar false om något gick fel.
+                    // Felbeskrivningen finns då i notesStore.LastError.
+                    if (!notesStore.SaveToJson())
+                    {
+                        saveError = notesStore.LastError;
+                    }
+
                     Thread.Sleep(800);
                 });
+
+            // Rött fel om det gick snett, annars ett grönt klart-meddelande.
+            if (saveError != "")
+            {
+                AnsiConsole.MarkupLine($"[red]{Markup.Escape(saveError)}[/]");
+            }
+            else
+            {
+                AnsiConsole.MarkupLine("[green]Allt sparat![/]");
+            }
+
+            
         }
     }
 }
