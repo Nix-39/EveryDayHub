@@ -20,6 +20,7 @@ public static class ScheduleMenu
                         "Show week",
                         "Add work shift",
                         "Add activity",
+                        "Edit",
                         "Back"
                     ));
 
@@ -33,6 +34,9 @@ public static class ScheduleMenu
                     break;
                 case "Add activity":
                     AddActivity(boardStore, memberStore);
+                    break;
+                case "Edit":
+                    Edit(boardStore, memberStore);
                     break;
                 case "Back":
                     running = false;
@@ -208,12 +212,161 @@ public static class ScheduleMenu
         Pause();
     }
 
-    // Asks for a date and does not accept anything else than yyyy-MM-dd
-    private static DateTime AskDate(string question)
+    private static void Edit(DataStore<BoardItem> boardStore, DataStore<FamilyMember> memberStore)
     {
+        // Only work shifts and activities can be edited here (notes belong to the notes menu)
+        List<BoardItem> editable = boardStore.GetAll()
+            .Where(item => item is WorkShift || item is Activity)
+            .OrderBy(item => StartOf(item))
+            .ToList();
+
+        if (editable.Count == 0)
+        {
+            Messages.Info("There is nothing to edit yet.");
+            Pause();
+            return;
+        }
+
+        List<string> labels = editable
+            .Select(item => $"{item.Id}: {StartOf(item):yyyy-MM-dd} {item.Describe()}")
+            .ToList();
+        labels.Add("Cancel");
+
+        string selected = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("What do you want to edit?")
+                .PageSize(10)
+                .UseConverter(label => Markup.Escape(label))
+                .AddChoices(labels));
+
+        if (selected == "Cancel")
+        {
+            return;
+        }
+
+        BoardItem chosen = editable[labels.IndexOf(selected)];
+
+        if (chosen is WorkShift shift)
+        {
+            EditWorkShift(shift, memberStore);
+        }
+        else if (chosen is Activity activity)
+        {
+            EditActivity(activity, memberStore);
+        }
+    }
+
+    private static void EditWorkShift(WorkShift shift, DataStore<FamilyMember> memberStore)
+    {
+        AnsiConsole.MarkupLine("[grey]Press Enter to keep the current value.[/]");
+
+        string title = AnsiConsole.Prompt(
+            new TextPrompt<string>("Title:").DefaultValue(shift.Title));
+
+        DateTime date = AskDate("Date (yyyy-MM-dd):", shift.Start);
+        TimeSpan start = AskTime("Start time (HH:mm):", shift.Start.TimeOfDay);
+        TimeSpan end = AskTime("End time (HH:mm):", shift.End.TimeOfDay);
+
+        while (end <= start)
+        {
+            Messages.Error("The end time must be after the start time.");
+            end = AskTime("End time (HH:mm):", shift.End.TimeOfDay);
+        }
+
+        int personId = shift.FamilyMemberId;
+        List<FamilyMember> members = memberStore.GetAll();
+
+        if (members.Count > 0 && AnsiConsole.Confirm("Change who is working?", false))
+        {
+            FamilyMember person = AnsiConsole.Prompt(
+                new SelectionPrompt<FamilyMember>()
+                    .Title("Who is working?")
+                    .UseConverter(member => Markup.Escape(member.Name))
+                    .AddChoices(members));
+
+            personId = person.Id;
+        }
+
+        shift.Title = title;
+        shift.Date = date.Date;
+        shift.Start = date.Date + start;
+        shift.End = date.Date + end;
+        shift.FamilyMemberId = personId;
+
+        Messages.Success($"Work shift updated: {shift.Describe()}");
+        Pause();
+    }
+
+    private static void EditActivity(Activity activity, DataStore<FamilyMember> memberStore)
+    {
+        AnsiConsole.MarkupLine("[grey]Press Enter to keep the current value.[/]");
+
+        string title = AnsiConsole.Prompt(
+            new TextPrompt<string>("Title:").DefaultValue(activity.Title));
+
+        string location = AnsiConsole.Prompt(
+            new TextPrompt<string>("Location:").DefaultValue(activity.Location));
+
+        DateTime date = AskDate("Date (yyyy-MM-dd):", activity.Start);
+        TimeSpan start = AskTime("Start time (HH:mm):", activity.Start.TimeOfDay);
+        TimeSpan end = AskTime("End time (HH:mm):", activity.End.TimeOfDay);
+
+        while (end <= start)
+        {
+            Messages.Error("The end time must be after the start time.");
+            end = AskTime("End time (HH:mm):", activity.End.TimeOfDay);
+        }
+
+        List<int> participantIds = activity.ParticipantIds;
+        List<FamilyMember> members = memberStore.GetAll();
+
+        if (members.Count > 0 && AnsiConsole.Confirm("Change who is taking part?", false))
+        {
+            List<FamilyMember> participants = AnsiConsole.Prompt(
+                new MultiSelectionPrompt<FamilyMember>()
+                    .Title("Who is taking part?")
+                    .InstructionsText("[grey](Press [blue]<space>[/] to select, [green]<enter>[/] to accept)[/]")
+                    .UseConverter(member => Markup.Escape(member.Name))
+                    .AddChoices(members));
+
+            participantIds = participants.Select(person => person.Id).ToList();
+        }
+
+        activity.Title = title;
+        activity.Location = location;
+        activity.Date = date.Date;
+        activity.Start = date.Date + start;
+        activity.End = date.Date + end;
+        activity.ParticipantIds = participantIds;
+
+        Messages.Success($"Activity updated: {activity.Describe()}");
+        Pause();
+    }
+
+    // Start time of a work shift or an activity
+    private static DateTime StartOf(BoardItem item)
+    {
+        if (item is WorkShift shift)
+        {
+            return shift.Start;
+        }
+
+        if (item is Activity activity)
+        {
+            return activity.Start;
+        }
+
+        return item.Date;
+    }
+
+    // Asks for a date and does not accept anything else than yyyy-MM-dd
+    private static DateTime AskDate(string question, DateTime? defaultDate = null)
+    {
+        DateTime defaultValue = defaultDate ?? DateTime.Today;
+
         string text = AnsiConsole.Prompt(
             new TextPrompt<string>(question)
-                .DefaultValue(DateTime.Today.ToString("yyyy-MM-dd"))
+                .DefaultValue(defaultValue.ToString("yyyy-MM-dd"))
                 .Validate(input =>
                     DateTime.TryParseExact(input, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)
                         ? ValidationResult.Success()
@@ -223,14 +376,20 @@ public static class ScheduleMenu
     }
 
     // Asks for a time of day and does not accept anything else than HH:mm
-    private static TimeSpan AskTime(string question)
+    private static TimeSpan AskTime(string question, TimeSpan? defaultTime = null)
     {
-        string text = AnsiConsole.Prompt(
-            new TextPrompt<string>(question)
-                .Validate(input =>
-                    DateTime.TryParseExact(input, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)
-                        ? ValidationResult.Success()
-                        : ValidationResult.Error("[red]Use the format HH:mm, for example 16:00[/]")));
+        TextPrompt<string> prompt = new TextPrompt<string>(question)
+            .Validate(input =>
+                DateTime.TryParseExact(input, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)
+                    ? ValidationResult.Success()
+                    : ValidationResult.Error("[red]Use the format HH:mm, for example 16:00[/]"));
+
+        if (defaultTime.HasValue)
+        {
+            prompt = prompt.DefaultValue(defaultTime.Value.ToString(@"hh\:mm"));
+        }
+
+        string text = AnsiConsole.Prompt(prompt);
 
         return DateTime.ParseExact(text, "HH:mm", CultureInfo.InvariantCulture).TimeOfDay;
     }
