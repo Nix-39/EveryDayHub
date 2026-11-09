@@ -6,14 +6,13 @@ namespace EveryDayHub.UI;
 
 public static class MainMenu
 {
-    public static void Run()
+    public static void Run(DataStore<Note> notesStore)
     {
         // Flagga som styr loopen. När den blir false stängs programmet.
         bool running = true;
 
         // Skapa lådan där lapparna ligger. Den skapas EN gång, före loopen,
         // annars blir den tom varje gång menyn visas.
-        var notesStore = new DataStore<Note>("");
 
         // Skapa lapp-menyn och ge den lådan.
         var notesMenu = new NotesMenu(notesStore);
