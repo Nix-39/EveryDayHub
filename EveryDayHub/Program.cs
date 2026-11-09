@@ -3,7 +3,6 @@ using System.IO;                // Path, File, Directory
 using EveryDayHub.Models;       // klassen Note
 using EveryDayHub.Services;     // klassen DataStore<T>
 using EveryDayHub.UI;           // klassen MainMenu
-using System.Threading;         // Thread.Sleep
 using Spectre.Console;          // progress bar, spinner och färger
 
 namespace EveryDayHub
@@ -21,7 +20,8 @@ namespace EveryDayHub
             // Lådan för lappar. Skapas en gång så att alla delar samma låda.
             var notesStore = new DataStore<Note>(notesPath);
 
-            // LADDA VID START: progress bar 
+            // ---------- LADDA VID START: progress bar ----------
+            // Felmeddelandet sparas här och skrivs ut när balken är klar.
             string loadError = "";
 
             AnsiConsole.Progress().Start(ctx =>
@@ -39,13 +39,12 @@ namespace EveryDayHub
                     }
                 }
 
-                Thread.Sleep(500);
-
                 // Fyll balken till 100 %.
                 notesTask.Increment(100);
             });
 
             // Om något gick fel: skriv ut felet i rött.
+            // Markup.Escape skyddar mot att tecken som [ i felmeddelandet tolkas som färgkoder.
             if (loadError != "")
             {
                 AnsiConsole.MarkupLine($"[red]{Markup.Escape(loadError)}[/]");
@@ -55,12 +54,11 @@ namespace EveryDayHub
                 Console.ReadKey(true);
             }
 
-            // MENYN 
+            // ---------- MENYN ----------
             // Programmet fortsätter på nästa rad först när användaren väljer Avsluta.
             MainMenu.Run(notesStore);
 
-
-            //  SPARA VID AVSLUT: spinner 
+            // ---------- SPARA VID AVSLUT: spinner ----------
             // Felmeddelandet sparas här och skrivs ut när spinnern är klar.
             string saveError = "";
 
@@ -78,8 +76,6 @@ namespace EveryDayHub
                     {
                         saveError = notesStore.LastError;
                     }
-
-                    Thread.Sleep(800);
                 });
 
             // Rött fel om det gick snett, annars ett grönt klart-meddelande.
@@ -91,8 +87,6 @@ namespace EveryDayHub
             {
                 AnsiConsole.MarkupLine("[green]Allt sparat![/]");
             }
-
-            
         }
     }
 }
