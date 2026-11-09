@@ -18,6 +18,8 @@ public static class ScheduleMenu
                     .Title("Schedule - what do you want to do?")
                     .AddChoices(
                         "Show week",
+                        "Filter schedule",
+                        "Who is free?",
                         "Add work shift",
                         "Add activity",
                         "Edit",
@@ -29,6 +31,12 @@ public static class ScheduleMenu
             {
                 case "Show week":
                     ShowWeek(boardStore, memberStore);
+                    break;
+                case "Filter schedule":
+                    Filter(boardStore, memberStore);
+                    break;
+                case "Who is free?":
+                    ShowFree(boardStore, memberStore);
                     break;
                 case "Add work shift":
                     AddWorkShift(boardStore, memberStore);
@@ -119,6 +127,163 @@ public static class ScheduleMenu
         }
 
         return string.Join("\n", lines);
+    }
+
+    private static void Filter(DataStore<BoardItem> boardStore, DataStore<FamilyMember> memberStore)
+    {
+        List<FamilyMember> members = memberStore.GetAll();
+
+        if (members.Count == 0)
+        {
+            Messages.Error("There are no family members yet. Add a family member first.");
+            Pause();
+            return;
+        }
+
+        FamilyMember? person = AskPersonFilter(members);
+        int? personId = person?.Id;
+
+        DateTime? dayFilter = null;
+
+        if (AnsiConsole.Confirm("Filter on a specific day?", false))
+        {
+            dayFilter = AskDate("Day (yyyy-MM-dd):");
+        }
+
+        // Every Where is a sieve: only items that match are let through
+        List<BoardItem> result = boardStore.GetAll()
+            .Where(item => item is WorkShift || item is Activity)
+            .Where(item => personId == null || InvolvesPerson(item, personId.Value))
+            .Where(item => dayFilter == null || StartOf(item).Date == dayFilter.Value.Date)
+            .OrderBy(item => StartOf(item))
+            .ToList();
+
+        string personText = person == null ? "everyone" : person.Name;
+        string dayText = dayFilter == null ? "all days" : dayFilter.Value.ToString("yyyy-MM-dd");
+        AnsiConsole.MarkupLine($"[bold]Filter:[/] {Markup.Escape(personText)}, {dayText}");
+
+        if (result.Count == 0)
+        {
+            Messages.Info("Nothing matches the filter.");
+            Pause();
+            return;
+        }
+
+        Table table = new Table().Border(TableBorder.Rounded);
+        table.AddColumn("Date");
+        table.AddColumn("Time");
+        table.AddColumn("Type");
+        table.AddColumn("What");
+        table.AddColumn("People");
+
+        foreach (BoardItem item in result)
+        {
+            string type = item is WorkShift ? "[yellow]Work shift[/]" : "[aqua]Activity[/]";
+
+            table.AddRow(
+                StartOf(item).ToString("yyyy-MM-dd"),
+                $"{StartOf(item):HH:mm}-{EndOf(item):HH:mm}",
+                type,
+                Markup.Escape(WhatText(item)),
+                Markup.Escape(PeopleText(item, members)));
+        }
+
+        AnsiConsole.Write(table);
+        Pause();
+    }
+
+    // Shows who is free and who is busy on a chosen day
+    private static void ShowFree(DataStore<BoardItem> boardStore, DataStore<FamilyMember> memberStore)
+    {
+        List<FamilyMember> members = memberStore.GetAll();
+
+        if (members.Count == 0)
+        {
+            Messages.Error("There are no family members yet. Add a family member first.");
+            Pause();
+            return;
+        }
+
+        DateTime day = AskDate("Day (yyyy-MM-dd):");
+
+        // Sieve once: only work shifts and activities that happen on the chosen day
+        List<BoardItem> dayItems = boardStore.GetAll()
+            .Where(item => item is WorkShift || item is Activity)
+            .Where(item => StartOf(item).Date == day.Date)
+            .OrderBy(item => StartOf(item))
+            .ToList();
+
+        Table table = new Table().Border(TableBorder.Rounded);
+        table.AddColumn("Person");
+        table.AddColumn("Status");
+        table.AddColumn("Booked");
+
+        List<string> freeNames = new List<string>();
+
+        foreach (FamilyMember member in members)
+        {
+            // A person is free if nothing on that day involves them
+            List<BoardItem> memberItems = dayItems
+                .Where(item => InvolvesPerson(item, member.Id))
+                .ToList();
+
+            if (memberItems.Count == 0)
+            {
+                freeNames.Add(member.Name);
+                table.AddRow(Markup.Escape(member.Name), "[green]Free[/]", "");
+            }
+            else
+            {
+                string booked = string.Join("\n", memberItems.Select(item =>
+                    Markup.Escape($"{StartOf(item):HH:mm}-{EndOf(item):HH:mm} {WhatText(item)}")));
+
+                table.AddRow(Markup.Escape(member.Name), "[red]Busy[/]", booked);
+            }
+        }
+
+        AnsiConsole.MarkupLine($"[bold]Who is free on {day:yyyy-MM-dd}?[/]");
+        AnsiConsole.Write(table);
+
+        if (freeNames.Count == 0)
+        {
+            Messages.Info("Nobody is free that day.");
+        }
+        else
+        {
+            Messages.Info($"Free: {string.Join(", ", freeNames)}");
+        }
+
+        Pause();
+    }
+
+    // Lets the user pick one person or "Everyone". Returns null for "Everyone".
+    private static FamilyMember? AskPersonFilter(List<FamilyMember> members)
+    {
+        List<int> options = Enumerable.Range(0, members.Count + 1).ToList();
+
+        int selected = AnsiConsole.Prompt(
+            new SelectionPrompt<int>()
+                .Title("Which person?")
+                .UseConverter(option => option == 0 ? "Everyone" : Markup.Escape(members[option - 1].Name))
+                .AddChoices(options));
+
+        return selected == 0 ? null : members[selected - 1];
+    }
+
+    // True if the person is working in the shift or taking part in the activity
+    private static bool InvolvesPerson(BoardItem item, int personId)
+    {
+        if (item is WorkShift shift)
+        {
+            return shift.FamilyMemberId == personId;
+        }
+
+        if (item is Activity activity)
+        {
+            return activity.ParticipantIds.Contains(personId);
+        }
+
+        return false;
     }
 
     private static void AddWorkShift(DataStore<BoardItem> boardStore, DataStore<FamilyMember> memberStore)
@@ -401,6 +566,55 @@ public static class ScheduleMenu
         }
 
         return item.Date;
+    }
+
+    // End time of a work shift or an activity
+    private static DateTime EndOf(BoardItem item)
+    {
+        if (item is WorkShift shift)
+        {
+            return shift.End;
+        }
+
+        if (item is Activity activity)
+        {
+            return activity.End;
+        }
+
+        return item.Date;
+    }
+
+    // Short text about what the item is
+    private static string WhatText(BoardItem item)
+    {
+        if (item is Activity activity)
+        {
+            return $"{activity.Title} at {activity.Location}";
+        }
+
+        return item.Title;
+    }
+
+    // Names of the people connected to the item, for example "Arian, Alper"
+    private static string PeopleText(BoardItem item, List<FamilyMember> members)
+    {
+        List<int> ids = new List<int>();
+
+        if (item is WorkShift shift)
+        {
+            ids.Add(shift.FamilyMemberId);
+        }
+        else if (item is Activity activity)
+        {
+            ids = activity.ParticipantIds;
+        }
+
+        List<string> names = members
+            .Where(member => ids.Contains(member.Id))
+            .Select(member => member.Name)
+            .ToList();
+
+        return string.Join(", ", names);
     }
 
     // Asks for a date and does not accept anything else than yyyy-MM-dd
