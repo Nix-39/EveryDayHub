@@ -35,6 +35,7 @@ public static class FridgeMenu
 						"Lägg till matvara",
 						"Ändra matvara",
 						"Ta bort matvara",
+						"Vad kan vi laga?",
 						"Tillbaka"
 					));
 
@@ -58,6 +59,11 @@ public static class FridgeMenu
 
 				case "Ta bort matvara":
 					DeleteFoodItem();
+					Pause.Wait();
+					break;
+
+				case "Vad kan vi laga?":
+					ShowAvailableRecipes();
 					Pause.Wait();
 					break;
 
@@ -382,4 +388,77 @@ public static class FridgeMenu
 		}
 	}
 
+
+	private static void ShowAvailableRecipes()
+	{
+		// Create a store for recipes.
+		var recipeStore = new DataStore<Recipe>("Data/recipes.json");
+
+		// Load recipes from the JSON file.
+		if (!recipeStore.LoadFromJson())
+		{
+			AnsiConsole.MarkupLine(
+				$"[red]{Markup.Escape(recipeStore.LastError)}[/]"
+			);
+			return;
+		}
+
+		// Get all loaded recipes.
+		var recipes = recipeStore.GetAll();
+
+		// Get all available food items.
+		var availableItems = _foodStore.GetAll()
+			.Where(item => item.IsAvailable)
+			.ToList();
+
+		// Display the number of available items and recipes.
+		AnsiConsole.MarkupLine(
+			$"[green]Tillgängliga matvaror: {availableItems.Count}[/]"
+		);
+
+		AnsiConsole.MarkupLine(
+			$"[green]Antal recept: {recipes.Count}[/]"
+		);
+
+		// Find recipes where every ingredient is available.
+		var possibleRecipes = recipes
+			.Where(recipe => recipe.Ingredients.All(ingredient =>
+				availableItems.Any(item =>
+					item.Name.Equals(
+						ingredient,
+						StringComparison.OrdinalIgnoreCase
+					)
+				)
+			))
+			.ToList();
+
+		// Display the number of recipes we can make.
+		AnsiConsole.MarkupLine(
+			$"[green]Möjliga recept: {possibleRecipes.Count}[/]"
+		);
+
+		if (possibleRecipes.Count == 0)
+		{
+			AnsiConsole.MarkupLine("[yellow]Inga recept kan lagas just nu.[/]");
+			return;
+		}
+
+		// Create a table for recipes we can make.
+		var table = new Table();
+		table.AddColumn("Recept");
+		table.AddColumn("Tillagningstid");
+
+		// Add each available recipe to the table.
+		foreach (var recipe in possibleRecipes)
+		{
+			table.AddRow(
+				recipe.Name,
+				$"{recipe.CookingTimeMinutes} min"
+			);
+		}
+
+		// Display the table.
+		AnsiConsole.Write(table);
+
+	}
 }
