@@ -49,12 +49,15 @@ public class NotesMenu
             var choice = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
                     .Title("[bold]Sök och filtrera lappar[/]")
-                    .AddChoices("Sök på text", "Tillbaka"));
+                    .AddChoices("Sök på text", "Filtrera på person", "Filtrera på typ", "Tillbaka"));
 
             switch (choice)
             {
                 case "Sök på text": SearchByText(); break;
+                case "Filtrera på person": FilterBy("vilken person?", n => n.Author); break;
+                case "Filtrera på typ": FilterBy("vilken typ?", n => n.Type); break;
                 case "Tillbaka":    back = true;    break;
+
             }
         }
     }
@@ -76,7 +79,43 @@ public class NotesMenu
         DisplayTable(result);
     }
 
+     // Filtrera på person eller typ.
+    // "Func<Note, string> selector" är en liten instruktion som säger VILKEN egenskap
+    // vi ska titta på. Då fungerar samma metod för både person och typ.
+    private void FilterBy(string title, Func<Note, string> selector)
+    {
+        var all = _notes.GetAll();
 
+        // DEL 1 + 2: plocka ut värdena, ta bort dubbletter och sortera dem.
+        // Tips: all.Select(selector) ... och sedan Distinct() och OrderBy(v => v).
+        // Avsluta med ToList().
+        var values = all
+            .Select(selector)
+            .Distinct()
+            .OrderBy(v => v)
+            .ToList();
+
+        // Finns inga lappar finns inget att välja bland.
+        if (values.Count == 0)
+        {
+            AnsiConsole.MarkupLine("[yellow]Det finns inga lappar än.[/]");
+            return;
+        }
+
+        // Låt användaren välja ett av värdena med piltangenterna.
+        string chosen = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title(title)
+                .AddChoices(values));
+
+        // DEL 3: behåll bara lappar där egenskapen är det valda värdet.
+        // Tips: Where(n => selector(n) == chosen) och sedan ToList().
+        var result = all
+            .Where(n => selector(n) == chosen)
+            .ToList();
+
+        DisplayTable(result);
+    }
     private void ShowNotes()
     {
         DisplayTable(_notes.GetAll());
