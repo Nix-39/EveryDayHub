@@ -49,13 +49,14 @@ public class NotesMenu
             var choice = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
                     .Title("[bold]Sök och filtrera lappar[/]")
-                    .AddChoices("Sök på text", "Filtrera på person", "Filtrera på typ", "Tillbaka"));
+                    .AddChoices("Sök på text", "Filtrera på person", "Filtrera på typ", "Sortera på datum", "Tillbaka"));
 
             switch (choice)
             {
                 case "Sök på text": SearchByText(); break;
                 case "Filtrera på person": FilterBy("vilken person?", n => n.Author); break;
                 case "Filtrera på typ": FilterBy("vilken typ?", n => n.Type); break;
+                case "Sortera på datum": SortByDate(); break;
                 case "Tillbaka":    back = true;    break;
 
             }
@@ -115,6 +116,27 @@ public class NotesMenu
             .ToList();
 
         DisplayTable(result);
+    }
+
+        // Sortera på datum.
+    private void SortByDate()
+    {
+        // Låt användaren välja i vilken ordning lapparna ska visas.
+        string order = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("Sortera hur?")
+                .AddChoices("Nyast först", "Äldst först"));
+
+        var all = _notes.GetAll();
+
+        // OrderByDescending = största värdet först (nyaste datumet överst).
+        // OrderBy = minsta värdet först (äldsta datumet överst).
+        // "villkor ? A : B" betyder: om villkoret stämmer, använd A, annars B.
+        var sorted = order == "Nyast först"
+            ? all.OrderByDescending(n => n.Date).ToList()
+            : all.OrderBy(n => n.Date).ToList();
+
+        DisplayTable(sorted);
     }
     private void ShowNotes()
     {
