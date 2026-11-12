@@ -14,6 +14,9 @@ namespace EveryDayHub
             // Mappen där JSON-filerna sparas (bredvid programmet, utanför git).
             string dataFolder = Path.Combine(AppContext.BaseDirectory, "Data");
 
+            // Log when the application starts.
+            Logger.Log("Info", "Application started");
+
             // Sökvägen till filen där lapparna sparas.
             string notesPath = Path.Combine(dataFolder, "notes.json");
 
@@ -49,6 +52,9 @@ namespace EveryDayHub
             {
                 AnsiConsole.MarkupLine($"[red]{Markup.Escape(loadError)}[/]");
 
+                // Log an error when loading notes fails.
+                Logger.Log("Error", loadError);
+
                 // Vänta på en tangent så att användaren hinner läsa felet.
                 AnsiConsole.MarkupLine("[grey]Tryck på valfri tangent för att fortsätta...[/]");
                 Console.ReadKey(true);
@@ -82,11 +88,17 @@ namespace EveryDayHub
             if (saveError != "")
             {
                 AnsiConsole.MarkupLine($"[red]{Markup.Escape(saveError)}[/]");
+
+                // Log an error when saving notes fails.
+                Logger.Log("Error", saveError);
             }
             else
             {
                 AnsiConsole.MarkupLine("[green]Allt sparat![/]");
             }
+
+            // Log when the application closes.
+            Logger.Log("Info", "Application closed");
         }
     }
 }
