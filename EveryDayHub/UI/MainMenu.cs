@@ -24,7 +24,7 @@ public static class MainMenu
 
         while (running)  // upprepar menyn tills någon väljer Avsluta
         {
-            StartScreen.Show();
+                       StartScreen.Show(notesStore, boardStore);
 
             var choice = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()   // menyn man styr med piltangenter och Enter
