@@ -10,9 +10,20 @@ public static class MainMenu
 	public static void Run()
 	{
 
+		// Skapar mappen "Data" om den inte finns. JSON-filerna sparas där, om mappen redan är skapat görs inget annat.
+		Directory.CreateDirectory("Data");
+
         // Lagrar familjemedlemmarna i en JSON-fil. DataStore är en generisk klass som kan lagra olika typer av objekt.
         var familyStore = new DataStore<FamilyMember>("Data/familymembers.json");
-        bool running = true;
+        
+		// Första gången en fil ska köras skapas den automatiskt tom.
+		if (File.Exists("Data/familymembers.json") && !familyStore.LoadFromJson())
+		{
+			AnsiConsole.MarkupLine($"[red]{Markup.Escape(familyStore.LastError)}[/]");
+			Pause.Wait();
+		}
+		
+		bool running = true;
 
 		while (running)  //while (running) upprepar menyn tills någon väljer Avsluta. Utan loopen stänger programmet efter första valet.
 		{

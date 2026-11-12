@@ -81,6 +81,7 @@ public static class FamilyMenu
         AnsiConsole.Write(table);
     }
 
+    // Menyval som lägger till en familjemedlem. Namnet kan inte vara tomt.
     private static void AddMember(DataStore<FamilyMember> store)
     {
         // AllowEmpty tillåter att användaren trycker Enter utan att skriva något. Trim tar bort mellanslag i början och slutet av strängen.
@@ -98,7 +99,11 @@ public static class FamilyMenu
         int nextId = members.Count == 0 ? 1 : members.Max(m => m.Id) + 1;
 
         store.AddItem(new FamilyMember { Id = nextId, Name = name });
-        AnsiConsole.MarkupLine($"[green]{Markup.Escape(name)} har lagts till.[/]");
+
+        if (Save(store))
+        {
+            AnsiConsole.MarkupLine($"[green]{Markup.Escape(name)} har lagts till.[/]");
+        }
     }
 
     // Menyval som ändrar namn på en familjemedlem. 
@@ -125,13 +130,18 @@ public static class FamilyMenu
 
         // Ändrar namnet på familjemedlemmen och sparar i lagret.
         member.Name = newName;
-        AnsiConsole.MarkupLine("[green]Namnet har ändrats.[/]");
+
+        if (Save(store))
+        {
+            AnsiConsole.MarkupLine("[green]Namnet har ändrats.[/]");
     }
+}
 
     // Menyval för att radera en familjemedlem ur listan.
     private static void RemoveMember(DataStore<FamilyMember> store)
     {
         var member = ChooseMember(store, "Vem vill du ta bort?");
+
         if (member == null)
         {
             return;
@@ -144,10 +154,27 @@ public static class FamilyMenu
             return;
         }
 
+        // RemoveItem letar efter samma objekt som valdes i ChooseMember och tar bort det ur listan. Save sparar ändringen i JSON-filen.
         store.RemoveItem(member);
-        AnsiConsole.MarkupLine($"[green]{Markup.Escape(member.Name)} har tagits bort.[/]");
+
+        if (Save(store))
+        {
+            AnsiConsole.MarkupLine($"[green]{Markup.Escape(member.Name)} har tagits bort.[/]");
+        }
     }
-    
+
+    //Sparar ändringar i JSON-filen och visar eventuella felmeddelanden.
+    private static bool Save(DataStore<FamilyMember> store)
+    {
+        if (store.SaveToJson())
+        {
+            return true;
+        }
+
+        AnsiConsole.MarkupLine($"[red]{Markup.Escape(store.LastError)}[/]");
+        return false;
+    }
+
     // Visar en lista med familjemedlemmar att välja från. Saknas medlemmar visas ett meddelande.
     private static FamilyMember? ChooseMember(DataStore<FamilyMember> store, string title)
     {
