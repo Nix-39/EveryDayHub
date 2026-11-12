@@ -1,137 +1,220 @@
-using Spectre.Console;          // ger oss tabeller, menyer och färger
-using EveryDayHub.Models;       // ger oss klassen Note
-using EveryDayHub.Services;     // ger oss klassen DataStore<T>
+using System;                   // StringComparison
+using System.Collections.Generic;
+using System.Linq;             
+using Spectre.Console;
+using EveryDayHub.Models;
+using EveryDayHub.Services;
 
-// namespace är mappen/adressen där klassen "bor". Den ska matcha resten av projektet.
 namespace EveryDayHub.UI;
 
-// En klass är en ritning. NotesMenu är ritningen för lapp-menyn (receptionisten).
 public class NotesMenu
 {
+    // Lådan där alla lappar ligger.
     private readonly DataStore<Note> _notes;
 
     public NotesMenu(DataStore<Note> notes)
     {
-        _notes = notes;   // spara lådan i vår egen variabel
+        _notes = notes;
     }
 
-    // Show() är den metod MainMenu anropar när användaren väljer "Lappar".
     public void Show()
     {
-        // En flagga som säger "ska vi gå tillbaka till huvudmenyn?". Börjar som false (nej).
         bool back = false;
-
-        // Loopen upprepar menyn om och om igen tills användaren väljer "Tillbaka".
-        // !back betyder "så länge back INTE är true".
         while (!back)
         {
-            // Visar en meny där man väljer med piltangenterna och trycker Enter.
-            // choice blir den text användaren valde, t.ex. "Lägg till".
             var choice = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
-                    .Title("[bold]Lappar[/]")   // [bold]...[/] gör texten fet
-                    .AddChoices("Visa lappar", "Lägg till", "Ändra", "Ta bort", "Tillbaka"));
+                    .Title("[bold]Lappar[/]")
+                    .AddChoices("Visa lappar", "Sök och filtrera", "Lägg till", "Ändra", "Ta bort", "Tillbaka"));
 
-            // switch jämför choice med varje "case" och kör den som matchar.
-            // Som en växel på en järnväg: beroende på valet åker vi åt olika håll.
             switch (choice)
             {
-                case "Visa lappar": ShowNotes();  break;   // R = Read
-                case "Lägg till":   AddNote();    break;   // C = Create
-                case "Ändra":       EditNote();   break;   // U = Update
-                case "Ta bort":     DeleteNote(); break;   // D = Delete
-                case "Tillbaka":    back = true;  break;   // avsluta loopen
+                case "Visa lappar":      ShowNotes();   break;
+                case "Sök och filtrera": SearchMenu();  break;  
+                case "Lägg till":        AddNote();     break;
+                case "Ändra":            EditNote();    break;
+                case "Ta bort":          DeleteNote();  break;
+                case "Tillbaka":         back = true;   break;
             }
-            // "break" betyder "klart med det här fallet, hoppa ut ur switch".
         }
     }
 
-    // R = Read: visa alla lappar i en tabell
+    // Undermenyn för sökning
+    // Egen meny så att lapp-menyn inte blir för lång. 
+    private void SearchMenu()
+    {
+        bool back = false;
+        while (!back)
+        {
+            var choice = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title("[bold]Sök och filtrera lappar[/]")
+                    .AddChoices("Sök på text", "Filtrera på person", "Filtrera på typ", "Sortera på datum", "Tillbaka"));
+
+            switch (choice)
+            {
+                case "Sök på text": SearchByText(); break;
+                case "Filtrera på person": FilterBy("vilken person?", n => n.Author); break;
+                case "Filtrera på typ": FilterBy("vilken typ?", n => n.Type); break;
+                case "Sortera på datum": SortByDate(); break;
+                case "Tillbaka":    back = true;    break;
+
+            }
+        }
+    }
+
+    //sök på text med LINQ 
+    private void SearchByText()
+    {
+        // Fråga vad användaren vill söka efter.
+        string query = AnsiConsole.Ask<string>("Sök efter text:");
+
+        // Where = sil: släpper bara igenom lappar där texten innehåller sökordet.
+        // n => betyder "för varje lapp n, kolla om det här stämmer".
+        // OrdinalIgnoreCase gör att "mjölk" också hittar "Mjölk".
+        // ToList() gör resultatet till en lista som tabellen kan visa.
+        var result = _notes.GetAll()
+            .Where(n => n.Text.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        DisplayTable(result);
+    }
+
+     // Filtrera på person eller typ.
+    // "Func<Note, string> selector" är en liten instruktion som säger VILKEN egenskap
+    // vi ska titta på. Då fungerar samma metod för både person och typ.
+    private void FilterBy(string title, Func<Note, string> selector)
+    {
+        var all = _notes.GetAll();
+
+        // DEL 1 + 2: plocka ut värdena, ta bort dubbletter och sortera dem.
+        // Tips: all.Select(selector) ... och sedan Distinct() och OrderBy(v => v).
+        // Avsluta med ToList().
+        var values = all
+            .Select(selector)
+            .Distinct()
+            .OrderBy(v => v)
+            .ToList();
+
+        // Finns inga lappar finns inget att välja bland.
+        if (values.Count == 0)
+        {
+            AnsiConsole.MarkupLine("[yellow]Det finns inga lappar än.[/]");
+            return;
+        }
+
+        // Låt användaren välja ett av värdena med piltangenterna.
+        string chosen = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title(title)
+                .AddChoices(values));
+
+        // DEL 3: behåll bara lappar där egenskapen är det valda värdet.
+        // Tips: Where(n => selector(n) == chosen) och sedan ToList().
+        var result = all
+            .Where(n => selector(n) == chosen)
+            .ToList();
+
+        DisplayTable(result);
+    }
+
+        // Sortera på datum.
+    private void SortByDate()
+    {
+        // Låt användaren välja i vilken ordning lapparna ska visas.
+        string order = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("Sortera hur?")
+                .AddChoices("Nyast först", "Äldst först"));
+
+        var all = _notes.GetAll();
+
+        // OrderByDescending = största värdet först (nyaste datumet överst).
+        // OrderBy = minsta värdet först (äldsta datumet överst).
+        // "villkor ? A : B" betyder: om villkoret stämmer, använd A, annars B.
+        var sorted = order == "Nyast först"
+            ? all.OrderByDescending(n => n.Date).ToList()
+            : all.OrderBy(n => n.Date).ToList();
+
+        DisplayTable(sorted);
+    }
     private void ShowNotes()
     {
-        // Skapa en tom tabell och lägg till kolumnrubriker.
+        DisplayTable(_notes.GetAll());
+    }
+
+    // Hjälpmetod som ritar tabellen för vilka lappar som helst 
+    // Både "Visa lappar" och alla sökningar behöver en tabell, så vi skriver den bara en gång.
+    private void DisplayTable(List<Note> notes)
+    {
+        // Inga lappar att visa: berätta det i stället för att rita en tom tabell.
+        if (notes.Count == 0)
+        {
+            AnsiConsole.MarkupLine("[yellow]Inga lappar hittades.[/]");
+            return;
+        }
+
         var table = new Table();
         table.AddColumn("Typ");
         table.AddColumn("Text");
         table.AddColumn("Av");
         table.AddColumn("Datum");
 
-        // foreach = "för varje lapp i lådan, gör följande".
-        // GetAll() hämtar alla lappar från DataStore.
-        foreach (var n in _notes.GetAll())
+        foreach (var n in notes)
         {
-            // Lägg till en rad i tabellen för just den här lappen.
-            // ToString("yyyy-MM-dd") formaterar datumet som t.ex. 2026-11-09.
-            table.AddRow(n.Type, n.Text, n.Author, n.Date.ToString("yyyy-MM-dd"));
+            // Markup.Escape skyddar mot att tecken som [ i en lapp tolkas som färgkoder.
+            table.AddRow(
+                Markup.Escape(n.Type),
+                Markup.Escape(n.Text),
+                Markup.Escape(n.Author),
+                n.Date.ToString("yyyy-MM-dd"));
         }
 
         AnsiConsole.Write(table);
     }
 
-    // C = Create: lägg till en ny lapp
+   
     private void AddNote()
     {
-        // Skapa ett nytt Note-objekt och fyll i egenskaperna.
-        // AnsiConsole.Ask ställer en fråga och väntar på att användaren skriver ett svar.
         var note = new Note
         {
             Type   = AnsiConsole.Ask<string>("Typ (t.ex. Viktigt, Påminnelse):"),
             Text   = AnsiConsole.Ask<string>("Text:"),
             Author = AnsiConsole.Ask<string>("Vem skriver lappen?"),
-            Date   = DateTime.Now   // datum och tid just nu, sätts automatiskt
+            Date   = DateTime.Now
         };
-
-        // Stoppa in lappen i kartotekslådan.
         _notes.AddItem(note);
     }
 
-    // U = Update: ändra en lapp
     private void EditNote()
     {
-        // Låt användaren välja vilken lapp som ska ändras.
         var note = PickNote("Vilken lapp vill du ändra?");
-
-        // Om inget valdes (t.ex. inga lappar finns) avslutar vi metoden direkt.
         if (note == null) return;
 
-        // Ändra texten på den valda lappen. Eftersom note är samma objekt som ligger
-        // i lådan ändras den direkt där också.
         note.Text = AnsiConsole.Ask<string>("Ny text:");
     }
 
-    // D = Delete: ta bort en lapp 
     private void DeleteNote()
     {
-        // Välj vilken lapp som ska bort.
         var note = PickNote("Vilken lapp vill du ta bort?");
-        if (note == null) return;   // inget valt, avbryt
+        if (note == null) return;
 
-        // Ta ut lappen ur kartotekslådan.
         _notes.RemoveItem(note);
     }
 
-    // Hjälpmetod: låter användaren välja en lapp med pilarna
-    // Både EditNote och DeleteNote behöver välja en lapp, så vi skriver koden EN gång här
-    // och återanvänder den. Det kallas att undvika duplicerad kod.
-    // "Note?" betyder att svaret kan vara en Note eller null (ingenting).
     private Note? PickNote(string title)
     {
-        // Hämta alla lappar.
         var all = _notes.GetAll();
-
-        // Count = antal lappar.
         if (all.Count == 0)
         {
-            // [yellow][/] gör texten gul.
             AnsiConsole.MarkupLine("[yellow]Det finns inga lappar än.[/]");
-            return null;   // null = "ingen lapp valdes"
+            return null;
         }
 
-        // Visa en pilmeny med alla lappar och returnera den som väljs.
         return AnsiConsole.Prompt(
             new SelectionPrompt<Note>()
-                .Title(title)                                   // rubriken vi skickade in
-                .UseConverter(n => $"{n.Type}: {n.Text}")       // hur varje lapp ska se ut i listan
-                .AddChoices(all));                              // alla lappar som val
+                .Title(title)
+                .UseConverter(n => $"{n.Type}: {n.Text}")
+                .AddChoices(all));
     }
 }
