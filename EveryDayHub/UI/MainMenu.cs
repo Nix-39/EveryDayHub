@@ -8,47 +8,58 @@ public static class MainMenu
 {
     public static void Run(DataStore<Note> notesStore)
     {
-        // Flagga som styr loopen. När den blir false stängs programmet.
-        bool running = true;
+        // Skapar mappen "Data" om den inte finns. JSON-filerna sparas där. Om mappen redan finns görs inget.
+        Directory.CreateDirectory("Data");
 
-        // Skapa lådan där lapparna ligger. Den skapas EN gång, före loopen,
-        // annars blir den tom varje gång menyn visas.
+        // Lagrar familjemedlemmarna i en JSON-fil. DataStore är en generisk klass som kan lagra olika typer av objekt.
+        var familyStore = new DataStore<FamilyMember>("Data/familymembers.json");
 
-        // Skapa lapp-menyn och ge den lådan.
+        // Första gången finns ingen fil, då startar listan tom. Finns filen laddas den, och vid fel visas ett rött meddelande.
+        if (File.Exists("Data/familymembers.json") && !familyStore.LoadFromJson())
+        {
+            AnsiConsole.MarkupLine($"[red]{Markup.Escape(familyStore.LastError)}[/]");
+            Pause.Wait();
+        }
+
+        // Skapa lapp-menyn och ge den lådan (notesStore) där lapparna ligger.
         var notesMenu = new NotesMenu(notesStore);
 
-        // Schedule: one store for work shifts and activities, one for family members.
-        // They are created once, before the loop, so the data is kept between menu visits.
+        // Schema: en store för arbetspass och aktiviteter. Personerna kommer från familyStore ovan.
         var boardStore = new DataStore<BoardItem>("board.json");
-        var memberStore = new DataStore<FamilyMember>("members.json");
 
-        while (running)  // upprepar menyn tills någon väljer Avsluta
+        bool running = true;
+
+        while (running)  // while (running) upprepar menyn tills någon väljer Avsluta.
         {
             StartScreen.Show();
 
             var choice = AnsiConsole.Prompt(
-                new SelectionPrompt<string>()   // menyn man styr med piltangenter och Enter
+                new SelectionPrompt<string>()   // SelectionPrompt är menyn man styr med piltangenter och Enter.
                     .Title("Vad vill du göra?")
                     .AddChoices(
-                        "Lappar",       // ditt val (kort 9)
-                        "Kylskåpet",    // P3:s val (kort 10)
-                        "Schema",       // P1:s val (kort 8)
+                        "Familjen",     // kort 7
+                        "Lappar",       // kort 9
+                        "Kylskåpet",    // kort 10
+                        "Schema",       // kort 8
                         "Avsluta"       // ligger alltid sist
                     ));
 
-            switch (choice) // skickar dig till rätt ställe beroende på valet
+            switch (choice) // switch skickar dig till rätt ställe beroende på vad du valde.
             {
+                case "Familjen":
+                    FamilyMenu.Run(familyStore);   // Öppnar familjens rum tills användaren väljer Tillbaka.
+                    break;
                 case "Lappar":
-                    notesMenu.Show();   // öppnar lapp-menyn
+                    notesMenu.Show();   // Öppnar lapp-menyn.
                     break;
                 case "Kylskåpet":
-                    FridgeMenu.Run();   // öppnar P3:s kylskåpsmeny
+                    FridgeMenu.Run();   // Öppnar kylskåpsmenyn.
                     break;
                 case "Schema":
-                    ScheduleMenu.Run(boardStore, memberStore);   // opens the schedule menu
+                    ScheduleMenu.Run(boardStore, familyStore);   // Öppnar schemat. Det använder familjens store för personerna.
                     break;
                 case "Avsluta":
-                    running = false;    // avslutar loopen
+                    running = false;    // Avslutar loopen.
                     break;
             }
         }
