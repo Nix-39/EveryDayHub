@@ -6,7 +6,7 @@ namespace EveryDayHub.UI;
 
 public static class MainMenu
 {
-    public static void Run(DataStore<Note> notesStore)
+    public static void Run(DataStore<Note> notesStore, DataStore<ShoppingItem> shoppingStore)
     {
         // Flagga som styr loopen. När den blir false stängs programmet.
         bool running = true;
@@ -21,6 +21,7 @@ public static class MainMenu
         // They are created once, before the loop, so the data is kept between menu visits.
         var boardStore = new DataStore<BoardItem>("board.json");
         var memberStore = new DataStore<FamilyMember>("members.json");
+        var shoppingMenu = new ShoppingMenu(shoppingStore); 
 
         while (running)  // upprepar menyn tills någon väljer Avsluta
         {
@@ -33,6 +34,7 @@ public static class MainMenu
                         "Lappar",       // ditt val (kort 9)
                         "Kylskåpet",    // P3:s val (kort 10)
                         "Schema",       // P1:s val (kort 8)
+                        "inkköpslistan",
                         "Avsluta"       // ligger alltid sist
                     ));
 
@@ -46,6 +48,9 @@ public static class MainMenu
                     break;
                 case "Schema":
                     ScheduleMenu.Run(boardStore, memberStore);   // opens the schedule menu
+                    break;
+                case "inkköpslistan":
+                    shoppingMenu.Show();
                     break;
                 case "Avsluta":
                     running = false;    // avslutar loopen

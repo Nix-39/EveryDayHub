@@ -23,6 +23,12 @@ namespace EveryDayHub
             // Lådan för lappar. Skapas en gång så att alla delar samma låda.
             var notesStore = new DataStore<Note>(notesPath);
 
+            //sökvägen till filen där inköpslistan sparas.
+            string shoppingPath = Path.Combine(dataFolder, "shopping.json");
+
+            // Lådan för inköpslistan. Skapas en gång så att alla delar samma låda.
+            var shoppingStore = new DataStore<ShoppingItem>(shoppingPath);
+
             // ---------- LADDA VID START: progress bar ----------
             // Felmeddelandet sparas här och skrivs ut när balken är klar.
             string loadError = "";
@@ -44,6 +50,17 @@ namespace EveryDayHub
 
                 // Fyll balken till 100 %.
                 notesTask.Increment(100);
+
+                 var shoppingTask = ctx.AddTask("Laddar inköpslistan...");
+                  if (File.Exists(shoppingPath))
+                {
+                    if (!shoppingStore.LoadFromJson() && loadError == "")  // Spara bara det första felet, så att det inte skrivs över.
+                    {
+                        loadError = shoppingStore.LastError;
+                    }
+                }
+                shoppingTask.Increment(100);
+
             });
 
             // Om något gick fel: skriv ut felet i rött.
@@ -62,7 +79,7 @@ namespace EveryDayHub
 
             // ---------- MENYN ----------
             // Programmet fortsätter på nästa rad först när användaren väljer Avsluta.
-            MainMenu.Run(notesStore);
+            MainMenu.Run(notesStore, shoppingStore);
 
             // ---------- SPARA VID AVSLUT: spinner ----------
             // Felmeddelandet sparas här och skrivs ut när spinnern är klar.
@@ -81,6 +98,11 @@ namespace EveryDayHub
                     if (!notesStore.SaveToJson())
                     {
                         saveError = notesStore.LastError;
+                    }
+
+                    if (!shoppingStore.SaveToJson() && saveError == "")  // Spara bara det första felet, så att det inte skrivs över.
+                    {
+                        saveError = shoppingStore.LastError;
                     }
                 });
 
