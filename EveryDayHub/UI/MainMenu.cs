@@ -29,7 +29,7 @@ public static class MainMenu
         }
 
         // Skapa lapp-menyn och ge den lådan (notesStore) där lapparna ligger.
-        var notesMenu = new NotesMenu(notesStore);
+        var notesMenu = new NotesMenu(notesStore, familyStore);
 
         // Schema: en store för arbetspass och aktiviteter. Personerna kommer från familyStore ovan.
         var shoppingMenu = new ShoppingMenu(shoppingStore); 

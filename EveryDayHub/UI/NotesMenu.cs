@@ -11,10 +11,14 @@ public class NotesMenu
 {
     // Lådan där alla lappar ligger.
     private readonly DataStore<Note> _notes;
+    private readonly DataStore<FamilyMember> _familyMembers;
 
-    public NotesMenu(DataStore<Note> notes)
+    public NotesMenu(
+        DataStore<Note> notes,
+        DataStore<FamilyMember> familyMembers)
     {
         _notes = notes;
+        _familyMembers = familyMembers;
     }
 
     public void Show()
@@ -174,15 +178,36 @@ public class NotesMenu
     }
 
    
+
     private void AddNote()
     {
+        // Get all registered family members.
+        var members = _familyMembers.GetAll();
+
+        // Stop if no family members are registered.
+        if (members.Count == 0)
+        {
+            AnsiConsole.MarkupLine(
+                "[yellow]Det finns inga familjemedlemmar. Lägg till en familjemedlem först.[/]");
+            return;
+        }
+
+        // Let the user select the author from the family members.
+        var selectedMember = AnsiConsole.Prompt(
+            new SelectionPrompt<FamilyMember>()
+                .Title("Vem skriver lappen?")
+                .UseConverter(member => member.Name)
+                .AddChoices(members));
+
+        // Create the note using the selected family member.
         var note = new Note
         {
-            Type   = AnsiConsole.Ask<string>("Typ (t.ex. Viktigt, Påminnelse):"),
-            Text   = AnsiConsole.Ask<string>("Text:"),
-            Author = AnsiConsole.Ask<string>("Vem skriver lappen?"),
-            Date   = DateTime.Now
+            Type = AnsiConsole.Ask<string>("Typ (t.ex. Viktigt, Påminnelse):"),
+            Text = AnsiConsole.Ask<string>("Text:"),
+            Author = selectedMember.Name,
+            Date = DateTime.Now
         };
+
         _notes.AddItem(note);
     }
 
