@@ -28,6 +28,15 @@ public static class MainMenu
             Pause.Wait();
         }
 
+        // Recept lagras i samma fil som kylskåpet och startskärmen läser från.
+        var recipeStore = new DataStore<Recipe>("Data/recipes.json");
+
+        if (File.Exists("Data/recipes.json") && !recipeStore.LoadFromJson())
+        {
+            AnsiConsole.MarkupLine("[red]{Markup.Escape(recipeStore.LastError)}[/]");
+            Pause.Wait();
+        }
+
         // Skapa lapp-menyn och ge den lådan (notesStore) där lapparna ligger.
         var notesMenu = new NotesMenu(notesStore);
 
@@ -49,6 +58,7 @@ public static class MainMenu
                         "Kylskåpet",    // kort 10
                         "Schema",       // kort 8
                         "Inköpslistan", // kort 19
+                        "Recept",       // kort 11
                         "Avsluta"       // ligger alltid sist
                     ));
 
@@ -68,6 +78,9 @@ public static class MainMenu
                     break;
                 case "Inköpslistan":
                     shoppingMenu.Show();
+                    break;
+                case "Recept":
+                    RecipeMenu.Run(recipeStore); // Öppnar receptrummet tills användaren väljer tillbaka.
                     break;
                 case "Avsluta":
                     running = false;    // Avslutar loopen.
