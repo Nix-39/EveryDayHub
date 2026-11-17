@@ -33,7 +33,7 @@ public static class MainMenu
 
         if (File.Exists("Data/recipes.json") && !recipeStore.LoadFromJson())
         {
-            AnsiConsole.MarkupLine("[red]{Markup.Escape(recipeStore.LastError)}[/]");
+            AnsiConsole.MarkupLine($"[red]{Markup.Escape(recipeStore.LastError)}[/]");
             Pause.Wait();
         }
 
