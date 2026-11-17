@@ -291,15 +291,50 @@ public static class FridgeMenu
 		}
 
 
+
 		// Ask for expiration date only for fridge items
 		DateTime expirationDate = DateTime.MinValue;
 
 		if (category != "Skafferi")
 		{
-			expirationDate = AnsiConsole.Ask<DateTime>(
-				"Ange utgångsdatum (åååå-mm-dd):"
-			);
+			while (true)
+			{
+				string dateInput = AnsiConsole.Ask<string>(
+					"Ange utgångsdatum (åååå-mm-dd):"
+				);
+
+				// Validate the exact date format
+				bool isValid = DateTime.TryParseExact(
+					dateInput,
+					"yyyy-MM-dd",
+					System.Globalization.CultureInfo.InvariantCulture,
+					System.Globalization.DateTimeStyles.None,
+					out expirationDate
+				);
+
+				if (!isValid)
+				{
+					AnsiConsole.MarkupLine(
+						"[red]Ogiltigt datum! Ange datum i formatet åååå-mm-dd.[/]"
+					);
+					continue;
+				}
+
+				// Warn if the best-before date has passed
+				if (expirationDate.Date < DateTime.Today)
+				{
+					AnsiConsole.MarkupLine(
+						"[yellow]Varning! Bäst före-datumet har passerat.[/]"
+					);
+					AnsiConsole.MarkupLine(
+						"[yellow]Kontrollera datumet och matvarans skick.[/]"
+					);
+				}
+
+				break;
+			}
 		}
+
 
 		// Check if a pantry item is in stock
 		bool inStock = false;
