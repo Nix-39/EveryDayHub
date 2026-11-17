@@ -430,9 +430,9 @@ public static class FridgeMenu
 				item.ExpirationDate.ToString("yyyy-MM-dd"),
 				status
 			);
-			// Display the expiration warning table
-			AnsiConsole.Write(table);
 		}
+		// Display the expiration warning table
+		AnsiConsole.Write(table);
 	}
-
 }
+
