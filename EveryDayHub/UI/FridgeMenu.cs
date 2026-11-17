@@ -36,6 +36,7 @@ public static class FridgeMenu
 						"Ändra matvara",
 						"Ta bort matvara",
 						"Bäst före-koll",
+						"Vad kan vi laga?",
 						"Tillbaka"
 					));
 
@@ -64,6 +65,11 @@ public static class FridgeMenu
 
 				case "Bäst före-koll":
 					ShowExpirationWarnings();
+          Pause.Wait();
+          break;
+          
+				case "Vad kan vi laga?":
+					ShowAvailableRecipes();
 					Pause.Wait();
 					break;
 
@@ -297,15 +303,50 @@ public static class FridgeMenu
 		}
 
 
+
 		// Ask for expiration date only for fridge items
 		DateTime expirationDate = DateTime.MinValue;
 
 		if (category != "Skafferi")
 		{
-			expirationDate = AnsiConsole.Ask<DateTime>(
-				"Ange utgångsdatum (åååå-mm-dd):"
-			);
+			while (true)
+			{
+				string dateInput = AnsiConsole.Ask<string>(
+					"Ange utgångsdatum (åååå-mm-dd):"
+				);
+
+				// Validate the exact date format
+				bool isValid = DateTime.TryParseExact(
+					dateInput,
+					"yyyy-MM-dd",
+					System.Globalization.CultureInfo.InvariantCulture,
+					System.Globalization.DateTimeStyles.None,
+					out expirationDate
+				);
+
+				if (!isValid)
+				{
+					AnsiConsole.MarkupLine(
+						"[red]Ogiltigt datum! Ange datum i formatet åååå-mm-dd.[/]"
+					);
+					continue;
+				}
+
+				// Warn if the best-before date has passed
+				if (expirationDate.Date < DateTime.Today)
+				{
+					AnsiConsole.MarkupLine(
+						"[yellow]Varning! Bäst före-datumet har passerat.[/]"
+					);
+					AnsiConsole.MarkupLine(
+						"[yellow]Kontrollera datumet och matvarans skick.[/]"
+					);
+				}
+
+				break;
+			}
 		}
+
 
 		// Check if a pantry item is in stock
 		bool inStock = false;
@@ -434,5 +475,79 @@ public static class FridgeMenu
 		// Display the expiration warning table
 		AnsiConsole.Write(table);
 	}
-}
 
+
+
+	private static void ShowAvailableRecipes()
+	{
+		// Create a store for recipes.
+		var recipeStore = new DataStore<Recipe>("Data/recipes.json");
+
+		// Load recipes from the JSON file.
+		if (!recipeStore.LoadFromJson())
+		{
+			AnsiConsole.MarkupLine(
+				$"[red]{Markup.Escape(recipeStore.LastError)}[/]"
+			);
+			return;
+		}
+
+		// Get all loaded recipes.
+		var recipes = recipeStore.GetAll();
+
+		// Get all available food items.
+		var availableItems = _foodStore.GetAll()
+			.Where(item => item.IsAvailable)
+			.ToList();
+
+		// Display the number of available items and recipes.
+		AnsiConsole.MarkupLine(
+			$"[green]Tillgängliga matvaror: {availableItems.Count}[/]"
+		);
+
+		AnsiConsole.MarkupLine(
+			$"[green]Antal recept: {recipes.Count}[/]"
+		);
+
+		// Find recipes where every ingredient is available.
+		var possibleRecipes = recipes
+			.Where(recipe => recipe.Ingredients.All(ingredient =>
+				availableItems.Any(item =>
+					item.Name.Equals(
+						ingredient,
+						StringComparison.OrdinalIgnoreCase
+					)
+				)
+			))
+			.ToList();
+
+		// Display the number of recipes we can make.
+		AnsiConsole.MarkupLine(
+			$"[green]Möjliga recept: {possibleRecipes.Count}[/]"
+		);
+
+		if (possibleRecipes.Count == 0)
+		{
+			AnsiConsole.MarkupLine("[yellow]Inga recept kan lagas just nu.[/]");
+			return;
+		}
+
+		// Create a table for recipes we can make.
+		var table = new Table();
+		table.AddColumn("Recept");
+		table.AddColumn("Tillagningstid");
+
+		// Add each available recipe to the table.
+		foreach (var recipe in possibleRecipes)
+		{
+			table.AddRow(
+				recipe.Name,
+				$"{recipe.CookingTimeMinutes} min"
+			);
+		}
+
+		// Display the table.
+		AnsiConsole.Write(table);
+
+	}
+}
