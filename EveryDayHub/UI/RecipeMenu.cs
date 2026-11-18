@@ -106,19 +106,18 @@ public static class RecipeMenu
         // Varje ingrediens i receptet hamnar på en egen rad med ett streck framför.
         var ingredientLines = string.Join("\n", recipe.Ingredients.Select(i => $"- {Markup.Escape(i)}"));
 
-            var content =
-            $"[bold]Tillagningstid:[/] {recipe.CookingTimeMinutes} min\n\n" +
-            $"[bold]Ingredienser:[/]\n{ingredientLines}\n\n" +
-            $"[bold]Gör så här:[/]\n{Markup.Escape(recipe.Instructions)}";
+        var content =
+        $"[bold]Tillagningstid:[/] {recipe.CookingTimeMinutes} min\n\n" +
+        $"[bold]Ingredienser:[/]\n{ingredientLines}\n\n" +
+        $"[bold]Gör så här:[/]\n{Markup.Escape(recipe.Instructions)}";
 
-            // Panel ritar en ram runt texten, med receptets namn som rubrik.
-            var panel = new Panel(content)
-            .Header(Markup.Escape(recipe.Name))
-            .Border(BoxBorder.Rounded);
+        // Panel ritar en ram runt texten, med receptets namn som rubrik.
+        var panel = new Panel(content)
+        .Header(Markup.Escape(recipe.Name))
+        .Border(BoxBorder.Rounded);
 
-            AnsiConsole.Write(panel);
+        AnsiConsole.Write(panel);
     }
-
 
     // Menyval som lägger till recept. Namn, tidsåtgång, ingredienser och beskrivning behövs fyllas i.
     private static void AddRecipe(DataStore<Recipe> store)
