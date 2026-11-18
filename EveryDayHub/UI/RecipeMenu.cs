@@ -1,15 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using System.Xml.Linq;
+﻿
 using EveryDayHub.Models;
 using EveryDayHub.Services;
 using Spectre.Console;
 
 namespace EveryDayHub.UI;
-
 
 // Rummet där recept hanteras. En undermeny där man kan visa alla, lägga till, ändra eller ta bort recept.
 public static class RecipeMenu
@@ -32,6 +26,7 @@ public static class RecipeMenu
                 .AddChoices(
                     "Visa",
                     "Lägg till",
+                    "Ändra",
                     "Tillbaka"
                     ));
 
@@ -42,6 +37,9 @@ public static class RecipeMenu
                     break;
                 case "Lägg till":
                     AddRecipe(store);
+                    break;
+                case "Ändra":
+                    EditRecipe(store);
                     break;
                 case "Tillbaka":
                     running = false;
@@ -116,18 +114,13 @@ public static class RecipeMenu
         if (!int.TryParse(timeText, out int minutes) || minutes <= 0)
         {
             AnsiConsole.MarkupLine("[red]Tillagningstiden måste vara ett heltal större än 0![/]");
+            return;
         }
 
         var ingredientText = AnsiConsole.Prompt(
             new TextPrompt<string>("Ingredienser (separera med komma):").AllowEmpty());
 
-        // Split delar på texten vid varje komma. TrimEntries tar bort mellanslag runt varje del och RemoveEmptyEntries tar bort tomma delar.
-        // ToLowerInvariant ger små bokstäver, som i recipes.json. Distinct tar bort dubletter.
-        var ingredients = ingredientText
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(i => i.ToLowerInvariant())
-            .Distinct()
-            .ToList();
+        var ingredients = ParseIngredients(ingredientText);
 
         if (ingredients.Count == 0)
         {
@@ -162,6 +155,92 @@ public static class RecipeMenu
         }
     }
 
+    // Menyval som ändrar ett recept. Tryck enter för att behålla ett värde som det är.
+    private static void EditRecipe(DataStore<Recipe> store)
+    {
+        var recipe = ChooseRecipe(store, "Vilket recept vill du ändra?");
+
+        // Finns inga recept avbryts operationen.
+        if (recipe == null)
+        {
+            return;
+        }
+
+        // Alla svar kontrolleras innan något ändras, så att ett fel inte lämnar ett recept halvändrat.
+        var newName = AnsiConsole.Prompt(
+            new TextPrompt<string>($"Nytt namn för {Markup.Escape(recipe.Name)} (Tryck enter för att behålla):")
+            .AllowEmpty()).Trim();
+
+        // Ett nytt namn får inte vara samma som ett annat recepts namn. Det egna receptet (samma Id) räknas inte.
+        if (newName.Length > 0 && store.GetAll().Any(r => r.Id != recipe.Id && r.Name.Equals(newName, StringComparison.OrdinalIgnoreCase)))
+        {
+            AnsiConsole.MarkupLine("[red]Det finns redan ett recept med det namnet![/]");
+            return;
+        }
+
+        var timeText = AnsiConsole.Prompt(
+            new TextPrompt<string>($"Ny tillagningstid i minuter (nu {recipe.CookingTimeMinutes}, Tryck enter för att behålla):")
+            .AllowEmpty()).Trim();
+
+        // Behåller den gamla tiden om inget skrivs.
+        int newMinutes = recipe.CookingTimeMinutes;
+
+        if (timeText.Length > 0 && (!int.TryParse(timeText, out newMinutes) || newMinutes <= 0))
+        {
+            AnsiConsole.MarkupLine("[red]Tillagningstiden måste vara ett heltal och större än 0![/]");
+            return;
+        }
+
+        var ingredientText = AnsiConsole.Prompt(
+            new TextPrompt<string>(
+                $"Nya ingredienser, separera med komma (nu: {Markup.Escape(string.Join(", ", recipe.Ingredients))}). Tryck Enter för att behålla:")
+            .AllowEmpty());
+
+        // Behåller de gamla ingredienserna om inget skrivs.
+        var newIngredients = recipe.Ingredients;
+
+        if (ingredientText.Trim().Length > 0)
+        {
+            newIngredients = ParseIngredients(ingredientText);
+
+            if (newIngredients.Count == 0)
+            {
+                AnsiConsole.MarkupLine("[red]Ange minst en ingrediens![/]");
+                return;
+            }
+        }
+
+        var newInstructions = AnsiConsole.Prompt(
+            new TextPrompt<string>("Ny beskrivning (Tryck Enter för att behålla):").AllowEmpty()).Trim();
+
+        // Om inget skrivs i något fält ändras ingenting.
+        if (newName.Length == 0 && timeText.Length == 0 && ingredientText.Trim().Length == 0 && newInstructions.Length == 0)
+        {
+            AnsiConsole.MarkupLine("[yellow]Ingenting ändrades.[/]");
+            return;
+        }
+
+        // Härifrån ändras receptet, men bara om något skrevs.
+        if (newName.Length > 0)
+        {
+            recipe.Name = newName;
+        }
+
+        recipe.CookingTimeMinutes = newMinutes;
+        recipe.Ingredients = newIngredients;
+
+        if (newInstructions.Length > 0)
+        {
+            recipe.Instructions = newInstructions;
+        }
+
+        if (Save(store))
+        {
+            AnsiConsole.MarkupLine("[green]Receptet har ändrats.[/]");
+        }
+    }
+
+    // Sparar ändringar i JSON-filen och visar eventuella felmeddelanden.
     private static bool Save(DataStore<Recipe> store)
     {
         if (store.SaveToJson())
@@ -169,8 +248,40 @@ public static class RecipeMenu
             return true;
         }
 
-        AnsiConsole.MarkupLine("[red]{Markup.Escape(store.LastError)}[/]");
+        AnsiConsole.MarkupLine($"[red]{Markup.Escape(store.LastError)}[/]");
         return false;
     }
+
+    // Gör om en text med kommatecken till en lista med ingredienser. Split delar texten vid varje komma.
+    // TrimEntries tar bort mellanslag runt varje del och RemoveEmptyEntries tar bort tomma delar.
+    // ToLowerInvariant ger små bokstäver, som i recipes.json. Distinct tar bort dubbletter.
+    private static List<string> ParseIngredients(string text)
+    {
+        return text
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(i => i.ToLowerInvariant())
+            .Distinct()
+            .ToList();
+    }
+
+    // Visar en lista med recept att välja från. Är listan med recept tom visas ett meddelande.
+    private static Recipe? ChooseRecipe(DataStore<Recipe> store, string title)
+    {
+        var recipes = store.GetAll();
+
+        if (recipes.Count == 0)
+        {
+            AnsiConsole.MarkupLine("[yellow]Inga recept hittades.[/]");
+            return null;
+        }
+
+        // UseConverter bestämmer vilken text som visas för varje alternativ. OrderBy sorterar listan på Id.
+        return AnsiConsole.Prompt(
+            new SelectionPrompt<Recipe>()
+            .Title(title)
+            .UseConverter(r => Markup.Escape(r.Name))
+            .AddChoices(recipes.OrderBy(r => r.Id)));
+    }
 }
+
 
