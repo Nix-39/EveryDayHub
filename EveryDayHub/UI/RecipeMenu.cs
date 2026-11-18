@@ -1,5 +1,4 @@
-﻿
-using EveryDayHub.Models;
+﻿using EveryDayHub.Models;
 using EveryDayHub.Services;
 using Spectre.Console;
 
@@ -27,6 +26,7 @@ public static class RecipeMenu
                     "Visa",
                     "Lägg till",
                     "Ändra",
+                    "Ta bort",
                     "Tillbaka"
                     ));
 
@@ -40,6 +40,9 @@ public static class RecipeMenu
                     break;
                 case "Ändra":
                     EditRecipe(store);
+                    break;
+                case "Ta bort":
+                    RemoveRecipe(store);
                     break;
                 case "Tillbaka":
                     running = false;
@@ -237,6 +240,33 @@ public static class RecipeMenu
         if (Save(store))
         {
             AnsiConsole.MarkupLine("[green]Receptet har ändrats.[/]");
+        }
+    }
+
+    // Menyval som tar bort ett recept ur listan.
+    private static void RemoveRecipe(DataStore<Recipe> store)
+    {
+        var recipe = ChooseRecipe(store, "Vilket recept vill du ta bort?");
+
+        // Saknas recept avbryts operationn
+        if (recipe == null)
+        {
+            return;
+        }
+
+        // Standardval är Nej, så inget recept tas bort av misstag.
+        if (!AnsiConsole.Confirm($"Ta bort {Markup.Escape(recipe.Name)}?", false))
+        {
+            AnsiConsole.MarkupLine("[yellow]Ingenting togs bort.[/]");
+            return;
+        }
+
+        // RemoveItem tar bort samma objekt som valdes i ChooseRecipe. Save sparar ändringar i JSON-filen.
+        store.RemoveItem(recipe);
+
+        if (Save(store))
+        {
+            AnsiConsole.MarkupLine($"[green]{Markup.Escape(recipe.Name)} har tagits bort.[/]");
         }
     }
 
