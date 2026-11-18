@@ -11,6 +11,10 @@ namespace EveryDayHub
     {
         static void Main(string[] args)
         {
+            // NYTT: Gör att specialtecken som ✓ och å, ä, ö visas rätt i terminalen.
+            // Måste ligga först, innan något skrivs ut.
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
+
             // Mappen där JSON-filerna sparas (bredvid programmet, utanför git).
             string dataFolder = Path.Combine(AppContext.BaseDirectory, "Data");
 
@@ -51,8 +55,8 @@ namespace EveryDayHub
                 // Fyll balken till 100 %.
                 notesTask.Increment(100);
 
-                 var shoppingTask = ctx.AddTask("Laddar inköpslistan...");
-                  if (File.Exists(shoppingPath))
+                var shoppingTask = ctx.AddTask("Laddar inköpslistan...");
+                if (File.Exists(shoppingPath))
                 {
                     if (!shoppingStore.LoadFromJson() && loadError == "")  // Spara bara det första felet, så att det inte skrivs över.
                     {
