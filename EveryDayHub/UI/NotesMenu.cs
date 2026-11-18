@@ -196,7 +196,7 @@ public class NotesMenu
         var selectedMember = AnsiConsole.Prompt(
             new SelectionPrompt<FamilyMember>()
                 .Title("Vem skriver lappen?")
-                .UseConverter(member => member.Name)
+                .UseConverter(member => Markup.Escape(member.Name))
                 .AddChoices(members));
 
         // Create the note using the selected family member.
@@ -239,7 +239,7 @@ public class NotesMenu
         return AnsiConsole.Prompt(
             new SelectionPrompt<Note>()
                 .Title(title)
-                .UseConverter(n => $"{n.Type}: {n.Text}")
+                .UseConverter(n => Markup.Escape($"{n.Type}: {n.Text}"))
                 .AddChoices(all));
     }
 }
