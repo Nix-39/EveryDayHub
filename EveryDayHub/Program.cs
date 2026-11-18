@@ -1,4 +1,9 @@
-﻿using EveryDayHub.UI;
+﻿using System;                   // AppContext, Console
+using System.IO;                // Path, File, Directory
+using EveryDayHub.Models;       // klassen Note
+using EveryDayHub.Services;     // klassen DataStore<T>
+using EveryDayHub.UI;           // klassen MainMenu
+using Spectre.Console;          // progress bar, spinner och färger
 
 namespace EveryDayHub
 {
@@ -6,7 +11,120 @@ namespace EveryDayHub
     {
         static void Main(string[] args)
         {
-            MainMenu.Run();
+            // NYTT: Gör att specialtecken som ✓ och å, ä, ö visas rätt i terminalen.
+            // Måste ligga först, innan något skrivs ut.
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
+
+            // Mappen där JSON-filerna sparas (bredvid programmet, utanför git).
+            string dataFolder = Path.Combine(AppContext.BaseDirectory, "Data");
+
+            // Log when the application starts.
+            Logger.Log("Info", "Application started");
+
+            // Sökvägen till filen där lapparna sparas.
+            string notesPath = Path.Combine(dataFolder, "notes.json");
+
+            // Lådan för lappar. Skapas en gång så att alla delar samma låda.
+            var notesStore = new DataStore<Note>(notesPath);
+
+            //sökvägen till filen där inköpslistan sparas.
+            string shoppingPath = Path.Combine(dataFolder, "shopping.json");
+
+            // Lådan för inköpslistan. Skapas en gång så att alla delar samma låda.
+            var shoppingStore = new DataStore<ShoppingItem>(shoppingPath);
+
+            // ---------- LADDA VID START: progress bar ----------
+            // Felmeddelandet sparas här och skrivs ut när balken är klar.
+            string loadError = "";
+
+            AnsiConsole.Progress().Start(ctx =>
+            {
+                var notesTask = ctx.AddTask("Laddar lappar...");
+
+                // Första körningen finns ingen fil. Det är normalt, så då hoppar vi över laddningen.
+                if (File.Exists(notesPath))
+                {
+                    // LoadFromJson returnerar false om något gick fel.
+                    // Felbeskrivningen finns då i notesStore.LastError.
+                    if (!notesStore.LoadFromJson())
+                    {
+                        loadError = notesStore.LastError;
+                    }
+                }
+
+                // Fyll balken till 100 %.
+                notesTask.Increment(100);
+
+                var shoppingTask = ctx.AddTask("Laddar inköpslistan...");
+                if (File.Exists(shoppingPath))
+                {
+                    if (!shoppingStore.LoadFromJson() && loadError == "")  // Spara bara det första felet, så att det inte skrivs över.
+                    {
+                        loadError = shoppingStore.LastError;
+                    }
+                }
+                shoppingTask.Increment(100);
+
+            });
+
+            // Om något gick fel: skriv ut felet i rött.
+            // Markup.Escape skyddar mot att tecken som [ i felmeddelandet tolkas som färgkoder.
+            if (loadError != "")
+            {
+                AnsiConsole.MarkupLine($"[red]{Markup.Escape(loadError)}[/]");
+
+                // Log an error when loading notes fails.
+                Logger.Log("Error", loadError);
+
+                // Vänta på en tangent så att användaren hinner läsa felet.
+                AnsiConsole.MarkupLine("[grey]Tryck på valfri tangent för att fortsätta...[/]");
+                Console.ReadKey(true);
+            }
+
+            // ---------- MENYN ----------
+            // Programmet fortsätter på nästa rad först när användaren väljer Avsluta.
+            MainMenu.Run(notesStore, shoppingStore);
+
+            // ---------- SPARA VID AVSLUT: spinner ----------
+            // Felmeddelandet sparas här och skrivs ut när spinnern är klar.
+            string saveError = "";
+
+            AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)        // hur symbolen ser ut
+                .Start("Sparar data...", ctx =>     // texten bredvid symbolen
+                {
+                    // DataStore skapar inte mappen själv, så vi gör det.
+                    // Finns den redan händer ingenting.
+                    Directory.CreateDirectory(dataFolder);
+
+                    // SaveToJson returnerar false om något gick fel.
+                    // Felbeskrivningen finns då i notesStore.LastError.
+                    if (!notesStore.SaveToJson())
+                    {
+                        saveError = notesStore.LastError;
+                    }
+
+                    if (!shoppingStore.SaveToJson() && saveError == "")  // Spara bara det första felet, så att det inte skrivs över.
+                    {
+                        saveError = shoppingStore.LastError;
+                    }
+                });
+
+            // Rött fel om det gick snett, annars ett grönt klart-meddelande.
+            if (saveError != "")
+            {
+                AnsiConsole.MarkupLine($"[red]{Markup.Escape(saveError)}[/]");
+
+                // Log an error when saving notes fails.
+                Logger.Log("Error", saveError);
+            }
+            else
+            {
+                AnsiConsole.MarkupLine("[green]Allt sparat![/]");
+            }
+
+            // Log when the application closes.
+            Logger.Log("Info", "Application closed");
         }
     }
 }
