@@ -23,7 +23,8 @@ public static class RecipeMenu
                 new SelectionPrompt<string>()
                 .Title("Recept - Vad vill du göra?")
                 .AddChoices(
-                    "Visa",
+                    "Visa alla",
+                    "Visa ett recept",
                     "Lägg till",
                     "Ändra",
                     "Ta bort",
@@ -32,8 +33,11 @@ public static class RecipeMenu
 
             switch (choice)
             {
-                case "Visa":
+                case "Visa alla":
                     ShowAll(store);
+                    break;
+                case "Visa ett recept":
+                    ShowRecipe(store);
                     break;
                 case "Lägg till":
                     AddRecipe(store);
@@ -86,6 +90,33 @@ public static class RecipeMenu
         }
 
         AnsiConsole.Write(table);
+    }
+
+    // Menyval som visar ett recept med tidsåtgång, ingredienser och beskrivning.
+    private static void ShowRecipe(DataStore<Recipe> store)
+    {
+        var recipe = ChooseRecipe(store, "Vilket recept vill du visa?");
+
+        // Saknas recept avbryts operationen.
+        if (recipe == null)
+        {
+            return;
+        }
+
+        // Varje ingrediens i receptet hamnar på en egen rad med ett streck framför.
+        var ingredientLines = string.Join("\n", recipe.Ingredients.Select(i => $"- {Markup.Escape(i)}"));
+
+            var content =
+            $"[bold]Tillagningstid:[/] {recipe.CookingTimeMinutes} min\n\n" +
+            $"[bold]Ingredienser:[/]\n{ingredientLines}\n\n" +
+            $"[bold]Gör så här:[/]\n{Markup.Escape(recipe.Instructions)}";
+
+            // Panel ritar en ram runt texten, med receptets namn som rubrik.
+            var panel = new Panel(content)
+            .Header(Markup.Escape(recipe.Name))
+            .Border(BoxBorder.Rounded);
+
+            AnsiConsole.Write(panel);
     }
 
 
@@ -248,7 +279,7 @@ public static class RecipeMenu
     {
         var recipe = ChooseRecipe(store, "Vilket recept vill du ta bort?");
 
-        // Saknas recept avbryts operationn
+        // Saknas recept avbryts operationen
         if (recipe == null)
         {
             return;
