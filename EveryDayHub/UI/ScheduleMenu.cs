@@ -5,8 +5,11 @@ using EveryDayHub.Services;
 
 namespace EveryDayHub.UI;
 
+// Schemamenyn (kort 8 och 13): arbetspass och aktiviteter för hela familjen
 public static class ScheduleMenu
 {
+    // Visar schemamenyn tills användaren väljer Tillbaka.
+    // Skåpen skapas i MainMenu och skickas hit, så att alla menyer delar samma data.
     public static void Run(DataStore<BoardItem> boardStore, DataStore<FamilyMember> memberStore)
     {
         bool running = true;
@@ -15,62 +18,64 @@ public static class ScheduleMenu
         {
             string choice = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()
-                    .Title("Schedule - what do you want to do?")
+                    .Title("Schema - vad vill du göra?")
                     .AddChoices(
-                        "Show week",
-                        "Filter schedule",
-                        "Who is free?",
-                        "Add work shift",
-                        "Add activity",
-                        "Edit",
-                        "Remove",
-                        "Back"
+                        "Visa veckan",
+                        "Filtrera schemat",
+                        "Vem är ledig?",
+                        "Lägg till arbetspass",
+                        "Lägg till aktivitet",
+                        "Ändra",
+                        "Ta bort",
+                        "Tillbaka"
                     ));
 
             switch (choice)
             {
-                case "Show week":
+                case "Visa veckan":
                     ShowWeek(boardStore, memberStore);
                     break;
-                case "Filter schedule":
+                case "Filtrera schemat":
                     Filter(boardStore, memberStore);
                     break;
-                case "Who is free?":
+                case "Vem är ledig?":
                     ShowFree(boardStore, memberStore);
                     break;
-                case "Add work shift":
+                case "Lägg till arbetspass":
                     AddWorkShift(boardStore, memberStore);
                     break;
-                case "Add activity":
+                case "Lägg till aktivitet":
                     AddActivity(boardStore, memberStore);
                     break;
-                case "Edit":
+                case "Ändra":
                     Edit(boardStore, memberStore);
                     break;
-                case "Remove":
+                case "Ta bort":
                     Remove(boardStore);
                     break;
-                case "Back":
+                case "Tillbaka":
                     running = false;
                     break;
             }
         }
     }
 
+    // Visar en vecka som tabell med en rad per person och en kolumn per dag
     private static void ShowWeek(DataStore<BoardItem> boardStore, DataStore<FamilyMember> memberStore)
     {
         List<FamilyMember> members = memberStore.GetAll();
 
         if (members.Count == 0)
         {
-            Messages.Error("There are no family members yet. Add a family member first.");
+            Messages.Error("Det finns inga familjemedlemmar än. Lägg till en familjemedlem först.");
             Pause();
             return;
         }
 
-        DateTime anyDay = AskDate("Show the week of (yyyy-MM-dd):");
+        DateTime anyDay = AskDate("Visa veckan för (åååå-mm-dd):");
         DateTime monday = StartOfWeek(anyDay);
         List<BoardItem> items = boardStore.GetAll();
+        CultureInfo swedish = new CultureInfo("sv-SE");
 
         Table table = new Table().Border(TableBorder.Rounded);
         table.AddColumn("Person");
@@ -78,7 +83,7 @@ public static class ScheduleMenu
         for (int i = 0; i < 7; i++)
         {
             DateTime day = monday.AddDays(i);
-            table.AddColumn(day.ToString("ddd dd/MM", CultureInfo.InvariantCulture));
+            table.AddColumn(day.ToString("ddd dd/MM", swedish));
         }
 
         foreach (FamilyMember member in members)
@@ -94,20 +99,20 @@ public static class ScheduleMenu
             table.AddRow(cells);
         }
 
-        AnsiConsole.MarkupLine($"[bold]Week of {monday:yyyy-MM-dd}[/]");
+        AnsiConsole.MarkupLine($"[bold]Vecka från {monday:yyyy-MM-dd}[/]");
         AnsiConsole.Write(table);
-        AnsiConsole.MarkupLine("[yellow]Work shift[/]   [aqua]Activity[/]");
+        AnsiConsole.MarkupLine("[yellow]Arbetspass[/]   [aqua]Aktivitet[/]");
         Pause();
     }
 
-    // Monday of the week that the given date belongs to
+    // Räknar ut måndagen i den vecka som datumet tillhör
     private static DateTime StartOfWeek(DateTime date)
     {
         int daysSinceMonday = ((int)date.DayOfWeek + 6) % 7;
         return date.Date.AddDays(-daysSinceMonday);
     }
 
-    // Builds the text for one cell: all work shifts and activities for one person on one day
+    // Bygger texten i en ruta: alla arbetspass och aktiviteter för en person en viss dag
     private static string BuildCell(List<BoardItem> items, FamilyMember person, DateTime day)
     {
         List<string> lines = new List<string>();
@@ -129,13 +134,14 @@ public static class ScheduleMenu
         return string.Join("\n", lines);
     }
 
+    // Filtrerar schemat på person och/eller dag och visar resultatet som tabell
     private static void Filter(DataStore<BoardItem> boardStore, DataStore<FamilyMember> memberStore)
     {
         List<FamilyMember> members = memberStore.GetAll();
 
         if (members.Count == 0)
         {
-            Messages.Error("There are no family members yet. Add a family member first.");
+            Messages.Error("Det finns inga familjemedlemmar än. Lägg till en familjemedlem först.");
             Pause();
             return;
         }
@@ -145,12 +151,12 @@ public static class ScheduleMenu
 
         DateTime? dayFilter = null;
 
-        if (AnsiConsole.Confirm("Filter on a specific day?", false))
+        if (AskYesNo("Vill du filtrera på en viss dag?"))
         {
-            dayFilter = AskDate("Day (yyyy-MM-dd):");
+            dayFilter = AskDate("Dag (åååå-mm-dd):");
         }
 
-        // Every Where is a sieve: only items that match are let through
+        // Varje Where är en sil: bara det som matchar släpps igenom
         List<BoardItem> result = boardStore.GetAll()
             .Where(item => item is WorkShift || item is Activity)
             .Where(item => personId == null || InvolvesPerson(item, personId.Value))
@@ -158,27 +164,27 @@ public static class ScheduleMenu
             .OrderBy(item => StartOf(item))
             .ToList();
 
-        string personText = person == null ? "everyone" : person.Name;
-        string dayText = dayFilter == null ? "all days" : dayFilter.Value.ToString("yyyy-MM-dd");
+        string personText = person == null ? "alla" : person.Name;
+        string dayText = dayFilter == null ? "alla dagar" : dayFilter.Value.ToString("yyyy-MM-dd");
         AnsiConsole.MarkupLine($"[bold]Filter:[/] {Markup.Escape(personText)}, {dayText}");
 
         if (result.Count == 0)
         {
-            Messages.Info("Nothing matches the filter.");
+            Messages.Info("Inget matchar filtret.");
             Pause();
             return;
         }
 
         Table table = new Table().Border(TableBorder.Rounded);
-        table.AddColumn("Date");
-        table.AddColumn("Time");
-        table.AddColumn("Type");
-        table.AddColumn("What");
-        table.AddColumn("People");
+        table.AddColumn("Datum");
+        table.AddColumn("Tid");
+        table.AddColumn("Typ");
+        table.AddColumn("Vad");
+        table.AddColumn("Personer");
 
         foreach (BoardItem item in result)
         {
-            string type = item is WorkShift ? "[yellow]Work shift[/]" : "[aqua]Activity[/]";
+            string type = item is WorkShift ? "[yellow]Arbetspass[/]" : "[aqua]Aktivitet[/]";
 
             table.AddRow(
                 StartOf(item).ToString("yyyy-MM-dd"),
@@ -192,21 +198,21 @@ public static class ScheduleMenu
         Pause();
     }
 
-    // Shows who is free and who is busy on a chosen day
+    // Visar vem som är ledig och vem som är upptagen en viss dag
     private static void ShowFree(DataStore<BoardItem> boardStore, DataStore<FamilyMember> memberStore)
     {
         List<FamilyMember> members = memberStore.GetAll();
 
         if (members.Count == 0)
         {
-            Messages.Error("There are no family members yet. Add a family member first.");
+            Messages.Error("Det finns inga familjemedlemmar än. Lägg till en familjemedlem först.");
             Pause();
             return;
         }
 
-        DateTime day = AskDate("Day (yyyy-MM-dd):");
+        DateTime day = AskDate("Dag (åååå-mm-dd):");
 
-        // Sieve once: only work shifts and activities that happen on the chosen day
+        // Silar en gång: bara arbetspass och aktiviteter som sker den valda dagen
         List<BoardItem> dayItems = boardStore.GetAll()
             .Where(item => item is WorkShift || item is Activity)
             .Where(item => StartOf(item).Date == day.Date)
@@ -216,13 +222,13 @@ public static class ScheduleMenu
         Table table = new Table().Border(TableBorder.Rounded);
         table.AddColumn("Person");
         table.AddColumn("Status");
-        table.AddColumn("Booked");
+        table.AddColumn("Bokat");
 
         List<string> freeNames = new List<string>();
 
         foreach (FamilyMember member in members)
         {
-            // A person is free if nothing on that day involves them
+            // En person är ledig om inget den dagen gäller personen
             List<BoardItem> memberItems = dayItems
                 .Where(item => InvolvesPerson(item, member.Id))
                 .ToList();
@@ -230,47 +236,48 @@ public static class ScheduleMenu
             if (memberItems.Count == 0)
             {
                 freeNames.Add(member.Name);
-                table.AddRow(Markup.Escape(member.Name), "[green]Free[/]", "");
+                table.AddRow(Markup.Escape(member.Name), "[green]Ledig[/]", "");
             }
             else
             {
                 string booked = string.Join("\n", memberItems.Select(item =>
                     Markup.Escape($"{StartOf(item):HH:mm}-{EndOf(item):HH:mm} {WhatText(item)}")));
 
-                table.AddRow(Markup.Escape(member.Name), "[red]Busy[/]", booked);
+                table.AddRow(Markup.Escape(member.Name), "[red]Upptagen[/]", booked);
             }
         }
 
-        AnsiConsole.MarkupLine($"[bold]Who is free on {day:yyyy-MM-dd}?[/]");
+        AnsiConsole.MarkupLine($"[bold]Vem är ledig {day:yyyy-MM-dd}?[/]");
         AnsiConsole.Write(table);
 
         if (freeNames.Count == 0)
         {
-            Messages.Info("Nobody is free that day.");
+            Messages.Info("Ingen är ledig den dagen.");
         }
         else
         {
-            Messages.Info($"Free: {string.Join(", ", freeNames)}");
+            Messages.Info($"Lediga: {string.Join(", ", freeNames)}");
         }
 
         Pause();
     }
 
-    // Lets the user pick one person or "Everyone". Returns null for "Everyone".
+    // Låter användaren välja en person eller "Alla". Ger null tillbaka för "Alla".
     private static FamilyMember? AskPersonFilter(List<FamilyMember> members)
     {
         List<int> options = Enumerable.Range(0, members.Count + 1).ToList();
 
         int selected = AnsiConsole.Prompt(
             new SelectionPrompt<int>()
-                .Title("Which person?")
-                .UseConverter(option => option == 0 ? "Everyone" : Markup.Escape(members[option - 1].Name))
+                .Title("Vilken person?")
+                .MoreChoicesText("[grey](Flytta upp och ner för fler val)[/]")
+                .UseConverter(option => option == 0 ? "Alla" : Markup.Escape(members[option - 1].Name))
                 .AddChoices(options));
 
         return selected == 0 ? null : members[selected - 1];
     }
 
-    // True if the person is working in the shift or taking part in the activity
+    // Sant om personen jobbar passet eller deltar i aktiviteten
     private static bool InvolvesPerson(BoardItem item, int personId)
     {
         if (item is WorkShift shift)
@@ -286,35 +293,32 @@ public static class ScheduleMenu
         return false;
     }
 
+    // Frågar efter uppgifterna och lägger till ett nytt arbetspass i skåpet
     private static void AddWorkShift(DataStore<BoardItem> boardStore, DataStore<FamilyMember> memberStore)
     {
         List<FamilyMember> members = memberStore.GetAll();
 
         if (members.Count == 0)
         {
-            Messages.Error("There are no family members yet. Add a family member first.");
+            Messages.Error("Det finns inga familjemedlemmar än. Lägg till en familjemedlem först.");
             Pause();
             return;
         }
 
-        FamilyMember person = AnsiConsole.Prompt(
-            new SelectionPrompt<FamilyMember>()
-                .Title("Who is working?")
-                .UseConverter(member => Markup.Escape(member.Name))
-                .AddChoices(members));
+        FamilyMember person = AskPerson("Vem ska jobba?", members);
 
         string title = AnsiConsole.Prompt(
-            new TextPrompt<string>("Title:")
-                .DefaultValue("Work shift"));
+            new TextPrompt<string>("Rubrik:")
+                .DefaultValue("Arbetspass"));
 
-        DateTime date = AskDate("Date (yyyy-MM-dd):");
-        TimeSpan start = AskTime("Start time (HH:mm):");
-        TimeSpan end = AskTime("End time (HH:mm):");
+        DateTime date = AskDate("Datum (åååå-mm-dd):");
+        TimeSpan start = AskTime("Starttid (tt:mm):");
+        TimeSpan end = AskTime("Sluttid (tt:mm):");
 
         while (end <= start)
         {
-            Messages.Error("The end time must be after the start time.");
-            end = AskTime("End time (HH:mm):");
+            Messages.Error("Sluttiden måste vara efter starttiden.");
+            end = AskTime("Sluttid (tt:mm):");
         }
 
         WorkShift shift = new WorkShift
@@ -329,40 +333,36 @@ public static class ScheduleMenu
         };
 
         boardStore.AddItem(shift);
-        Messages.Success($"Work shift saved: {shift.Describe()}");
+        Messages.Success($"Arbetspasset sparades: {shift.Describe()}");
         Pause();
     }
 
+    // Frågar efter uppgifterna och lägger till en ny aktivitet i skåpet
     private static void AddActivity(DataStore<BoardItem> boardStore, DataStore<FamilyMember> memberStore)
     {
         List<FamilyMember> members = memberStore.GetAll();
 
         if (members.Count == 0)
         {
-            Messages.Error("There are no family members yet. Add a family member first.");
+            Messages.Error("Det finns inga familjemedlemmar än. Lägg till en familjemedlem först.");
             Pause();
             return;
         }
 
-        string title = AnsiConsole.Prompt(new TextPrompt<string>("Title:"));
-        string location = AnsiConsole.Prompt(new TextPrompt<string>("Location:"));
+        string title = AnsiConsole.Prompt(new TextPrompt<string>("Rubrik:"));
+        string location = AnsiConsole.Prompt(new TextPrompt<string>("Plats:"));
 
-        DateTime date = AskDate("Date (yyyy-MM-dd):");
-        TimeSpan start = AskTime("Start time (HH:mm):");
-        TimeSpan end = AskTime("End time (HH:mm):");
+        DateTime date = AskDate("Datum (åååå-mm-dd):");
+        TimeSpan start = AskTime("Starttid (tt:mm):");
+        TimeSpan end = AskTime("Sluttid (tt:mm):");
 
         while (end <= start)
         {
-            Messages.Error("The end time must be after the start time.");
-            end = AskTime("End time (HH:mm):");
+            Messages.Error("Sluttiden måste vara efter starttiden.");
+            end = AskTime("Sluttid (tt:mm):");
         }
 
-        List<FamilyMember> participants = AnsiConsole.Prompt(
-            new MultiSelectionPrompt<FamilyMember>()
-                .Title("Who is taking part?")
-                .InstructionsText("[grey](Press [blue]<space>[/] to select, [green]<enter>[/] to accept)[/]")
-                .UseConverter(member => Markup.Escape(member.Name))
-                .AddChoices(members));
+        List<FamilyMember> participants = AskParticipants(members);
 
         Activity activity = new Activity
         {
@@ -377,13 +377,14 @@ public static class ScheduleMenu
         };
 
         boardStore.AddItem(activity);
-        Messages.Success($"Activity saved: {activity.Describe()}");
+        Messages.Success($"Aktiviteten sparades: {activity.Describe()}");
         Pause();
     }
 
+    // Låter användaren välja ett pass eller en aktivitet och ändra det
     private static void Edit(DataStore<BoardItem> boardStore, DataStore<FamilyMember> memberStore)
     {
-        BoardItem? chosen = ChooseItem(boardStore, "What do you want to edit?");
+        BoardItem? chosen = ChooseItem(boardStore, "Vad vill du ändra?");
 
         if (chosen == null)
         {
@@ -400,39 +401,40 @@ public static class ScheduleMenu
         }
     }
 
+    // Låter användaren välja ett pass eller en aktivitet och ta bort det efter en kontrollfråga
     private static void Remove(DataStore<BoardItem> boardStore)
     {
-        BoardItem? chosen = ChooseItem(boardStore, "What do you want to remove?");
+        BoardItem? chosen = ChooseItem(boardStore, "Vad vill du ta bort?");
 
         if (chosen == null)
         {
             return;
         }
 
-        if (!AnsiConsole.Confirm($"Remove {Markup.Escape(chosen.Describe())}?", false))
+        if (!AskYesNo($"Ta bort {Markup.Escape(chosen.Describe())}?"))
         {
-            Messages.Info("Nothing was removed.");
+            Messages.Info("Inget togs bort.");
             Pause();
             return;
         }
 
         if (boardStore.RemoveItem(chosen))
         {
-            Messages.Success("Removed.");
+            Messages.Success("Borttaget.");
         }
         else
         {
-            Messages.Error("Could not remove the item.");
+            Messages.Error("Det gick inte att ta bort.");
         }
 
         Pause();
     }
 
-    // Lets the user pick a work shift or an activity from a list.
-    // Returns null if there is nothing to pick or if the user cancels.
+    // Låter användaren välja ett arbetspass eller en aktivitet i en lista.
+    // Ger null tillbaka om listan är tom eller om användaren väljer Avbryt.
     private static BoardItem? ChooseItem(DataStore<BoardItem> boardStore, string title)
     {
-        // Only work shifts and activities are listed (notes belong to the notes menu)
+        // Bara arbetspass och aktiviteter visas (lappar hör till lappmenyn)
         List<BoardItem> choices = boardStore.GetAll()
             .Where(item => item is WorkShift || item is Activity)
             .OrderBy(item => StartOf(item))
@@ -440,7 +442,7 @@ public static class ScheduleMenu
 
         if (choices.Count == 0)
         {
-            Messages.Info("There are no work shifts or activities yet.");
+            Messages.Info("Det finns inga arbetspass eller aktiviteter än.");
             Pause();
             return null;
         }
@@ -448,16 +450,17 @@ public static class ScheduleMenu
         List<string> labels = choices
             .Select(item => $"{item.Id}: {StartOf(item):yyyy-MM-dd} {item.Describe()}")
             .ToList();
-        labels.Add("Cancel");
+        labels.Add("Avbryt");
 
         string selected = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
                 .Title(title)
                 .PageSize(10)
+                .MoreChoicesText("[grey](Flytta upp och ner för fler val)[/]")
                 .UseConverter(label => Markup.Escape(label))
                 .AddChoices(labels));
 
-        if (selected == "Cancel")
+        if (selected == "Avbryt")
         {
             return null;
         }
@@ -465,82 +468,73 @@ public static class ScheduleMenu
         return choices[labels.IndexOf(selected)];
     }
 
+    // Ändrar ett arbetspass. Enter behåller det nuvarande värdet.
     private static void EditWorkShift(WorkShift shift, DataStore<FamilyMember> memberStore)
     {
-        AnsiConsole.MarkupLine("[grey]Press Enter to keep the current value.[/]");
+        AnsiConsole.MarkupLine("[grey]Tryck Enter för att behålla nuvarande värde.[/]");
 
         string title = AnsiConsole.Prompt(
-            new TextPrompt<string>("Title:").DefaultValue(shift.Title));
+            new TextPrompt<string>("Rubrik:").DefaultValue(shift.Title));
 
-        DateTime date = AskDate("Date (yyyy-MM-dd):", shift.Start);
-        TimeSpan start = AskTime("Start time (HH:mm):", shift.Start.TimeOfDay);
-        TimeSpan end = AskTime("End time (HH:mm):", shift.End.TimeOfDay);
+        DateTime date = AskDate("Datum (åååå-mm-dd):", shift.Start);
+        TimeSpan start = AskTime("Starttid (tt:mm):", shift.Start.TimeOfDay);
+        TimeSpan end = AskTime("Sluttid (tt:mm):", shift.End.TimeOfDay);
 
         while (end <= start)
         {
-            Messages.Error("The end time must be after the start time.");
-            end = AskTime("End time (HH:mm):", shift.End.TimeOfDay);
+            Messages.Error("Sluttiden måste vara efter starttiden.");
+            end = AskTime("Sluttid (tt:mm):", shift.End.TimeOfDay);
         }
 
         int personId = shift.FamilyMemberId;
         List<FamilyMember> members = memberStore.GetAll();
 
-        if (members.Count > 0 && AnsiConsole.Confirm("Change who is working?", false))
+        if (members.Count > 0 && AskYesNo("Vill du byta vem som jobbar?"))
         {
-            FamilyMember person = AnsiConsole.Prompt(
-                new SelectionPrompt<FamilyMember>()
-                    .Title("Who is working?")
-                    .UseConverter(member => Markup.Escape(member.Name))
-                    .AddChoices(members));
-
-            personId = person.Id;
+            personId = AskPerson("Vem ska jobba?", members).Id;
         }
 
+        // Svaren skrivs in i objektet först här, så att det aldrig blir halvt ändrat
         shift.Title = title;
         shift.Date = date.Date;
         shift.Start = date.Date + start;
         shift.End = date.Date + end;
         shift.FamilyMemberId = personId;
 
-        Messages.Success($"Work shift updated: {shift.Describe()}");
+        Messages.Success($"Arbetspasset uppdaterades: {shift.Describe()}");
         Pause();
     }
 
+    // Ändrar en aktivitet. Enter behåller det nuvarande värdet.
     private static void EditActivity(Activity activity, DataStore<FamilyMember> memberStore)
     {
-        AnsiConsole.MarkupLine("[grey]Press Enter to keep the current value.[/]");
+        AnsiConsole.MarkupLine("[grey]Tryck Enter för att behålla nuvarande värde.[/]");
 
         string title = AnsiConsole.Prompt(
-            new TextPrompt<string>("Title:").DefaultValue(activity.Title));
+            new TextPrompt<string>("Rubrik:").DefaultValue(activity.Title));
 
         string location = AnsiConsole.Prompt(
-            new TextPrompt<string>("Location:").DefaultValue(activity.Location));
+            new TextPrompt<string>("Plats:").DefaultValue(activity.Location));
 
-        DateTime date = AskDate("Date (yyyy-MM-dd):", activity.Start);
-        TimeSpan start = AskTime("Start time (HH:mm):", activity.Start.TimeOfDay);
-        TimeSpan end = AskTime("End time (HH:mm):", activity.End.TimeOfDay);
+        DateTime date = AskDate("Datum (åååå-mm-dd):", activity.Start);
+        TimeSpan start = AskTime("Starttid (tt:mm):", activity.Start.TimeOfDay);
+        TimeSpan end = AskTime("Sluttid (tt:mm):", activity.End.TimeOfDay);
 
         while (end <= start)
         {
-            Messages.Error("The end time must be after the start time.");
-            end = AskTime("End time (HH:mm):", activity.End.TimeOfDay);
+            Messages.Error("Sluttiden måste vara efter starttiden.");
+            end = AskTime("Sluttid (tt:mm):", activity.End.TimeOfDay);
         }
 
         List<int> participantIds = activity.ParticipantIds;
         List<FamilyMember> members = memberStore.GetAll();
 
-        if (members.Count > 0 && AnsiConsole.Confirm("Change who is taking part?", false))
+        if (members.Count > 0 && AskYesNo("Vill du byta vilka som deltar?"))
         {
-            List<FamilyMember> participants = AnsiConsole.Prompt(
-                new MultiSelectionPrompt<FamilyMember>()
-                    .Title("Who is taking part?")
-                    .InstructionsText("[grey](Press [blue]<space>[/] to select, [green]<enter>[/] to accept)[/]")
-                    .UseConverter(member => Markup.Escape(member.Name))
-                    .AddChoices(members));
-
-            participantIds = participants.Select(person => person.Id).ToList();
+            participantIds = AskParticipants(members).Select(person => person.Id).ToList();
         }
 
+        // Svaren skrivs in i objektet först här, så att det aldrig blir halvt ändrat
         activity.Title = title;
         activity.Location = location;
         activity.Date = date.Date;
@@ -548,11 +542,11 @@ public static class ScheduleMenu
         activity.End = date.Date + end;
         activity.ParticipantIds = participantIds;
 
-        Messages.Success($"Activity updated: {activity.Describe()}");
+        Messages.Success($"Aktiviteten uppdaterades: {activity.Describe()}");
         Pause();
     }
 
-    // Start time of a work shift or an activity
+    // Starttiden för ett arbetspass eller en aktivitet
     private static DateTime StartOf(BoardItem item)
     {
         if (item is WorkShift shift)
@@ -568,7 +562,7 @@ public static class ScheduleMenu
         return item.Date;
     }
 
-    // End time of a work shift or an activity
+    // Sluttiden för ett arbetspass eller en aktivitet
     private static DateTime EndOf(BoardItem item)
     {
         if (item is WorkShift shift)
@@ -584,18 +578,18 @@ public static class ScheduleMenu
         return item.Date;
     }
 
-    // Short text about what the item is
+    // Kort text om vad det är, till exempel "Fotboll på Heden"
     private static string WhatText(BoardItem item)
     {
         if (item is Activity activity)
         {
-            return $"{activity.Title} at {activity.Location}";
+            return $"{activity.Title} på {activity.Location}";
         }
 
         return item.Title;
     }
 
-    // Names of the people connected to the item, for example "Arian, Alper"
+    // Namnen på personerna som hör till passet eller aktiviteten, till exempel "Arian, Alper"
     private static string PeopleText(BoardItem item, List<FamilyMember> members)
     {
         List<int> ids = new List<int>();
@@ -617,7 +611,41 @@ public static class ScheduleMenu
         return string.Join(", ", names);
     }
 
-    // Asks for a date and does not accept anything else than yyyy-MM-dd
+    // Låter användaren välja en person i en lista
+    private static FamilyMember AskPerson(string title, List<FamilyMember> members)
+    {
+        return AnsiConsole.Prompt(
+            new SelectionPrompt<FamilyMember>()
+                .Title(title)
+                .MoreChoicesText("[grey](Flytta upp och ner för fler val)[/]")
+                .UseConverter(member => Markup.Escape(member.Name))
+                .AddChoices(members));
+    }
+
+    // Låter användaren kryssa i en eller flera deltagare
+    private static List<FamilyMember> AskParticipants(List<FamilyMember> members)
+    {
+        return AnsiConsole.Prompt(
+            new MultiSelectionPrompt<FamilyMember>()
+                .Title("Vilka deltar?")
+                .InstructionsText("[grey](Tryck [blue]<mellanslag>[/] för att välja, [green]<enter>[/] för att bekräfta)[/]")
+                .MoreChoicesText("[grey](Flytta upp och ner för fler val)[/]")
+                .UseConverter(member => Markup.Escape(member.Name))
+                .AddChoices(members));
+    }
+
+    // Ja/nej-fråga som meny. Nej står först, så att Enter är det säkra valet.
+    private static bool AskYesNo(string question)
+    {
+        string answer = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title(question)
+                .AddChoices("Nej", "Ja"));
+
+        return answer == "Ja";
+    }
+
+    // Frågar efter ett datum och godtar bara formatet åååå-mm-dd
     private static DateTime AskDate(string question, DateTime? defaultDate = null)
     {
         DateTime defaultValue = defaultDate ?? DateTime.Today;
@@ -628,19 +656,19 @@ public static class ScheduleMenu
                 .Validate(input =>
                     DateTime.TryParseExact(input, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)
                         ? ValidationResult.Success()
-                        : ValidationResult.Error("[red]Use the format yyyy-MM-dd, for example 2026-11-05[/]")));
+                        : ValidationResult.Error("[red]Använd formatet åååå-mm-dd, till exempel 2026-11-05[/]")));
 
         return DateTime.ParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture);
     }
 
-    // Asks for a time of day and does not accept anything else than HH:mm
+    // Frågar efter ett klockslag och godtar bara formatet tt:mm
     private static TimeSpan AskTime(string question, TimeSpan? defaultTime = null)
     {
         TextPrompt<string> prompt = new TextPrompt<string>(question)
             .Validate(input =>
                 DateTime.TryParseExact(input, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)
                     ? ValidationResult.Success()
-                    : ValidationResult.Error("[red]Use the format HH:mm, for example 16:00[/]"));
+                    : ValidationResult.Error("[red]Använd formatet tt:mm, till exempel 16:00[/]"));
 
         if (defaultTime.HasValue)
         {
@@ -652,16 +680,17 @@ public static class ScheduleMenu
         return DateTime.ParseExact(text, "HH:mm", CultureInfo.InvariantCulture).TimeOfDay;
     }
 
-    // Next free Id: the highest Id in the store plus one
+    // Nästa lediga Id: det högsta Id:t i skåpet plus ett
     private static int NextId(DataStore<BoardItem> boardStore)
     {
         List<BoardItem> all = boardStore.GetAll();
         return all.Count == 0 ? 1 : all.Max(item => item.Id) + 1;
     }
 
+    // Väntar på en tangent så att användaren hinner läsa meddelandet
     private static void Pause()
     {
-        AnsiConsole.MarkupLine("[grey]Press any key to continue...[/]");
+        AnsiConsole.MarkupLine("[grey]Tryck på valfri tangent för att fortsätta...[/]");
         Console.ReadKey(true);
     }
 }
