@@ -8,8 +8,12 @@ namespace EveryDayHub.UI;
 // Statistikmenyn (kort 18): sammanfattningar av det som finns i skåpen
 public static class StatisticsMenu
 {
+    // Samma filer som kylskåpsmenyn sparar i, så att statistiken visar samma data
+    private const string FoodFile = "Data/fooditems.json";
+    private const string RecipeFile = "Data/recipes.json";
+
     // Visar statistikmenyn tills användaren väljer Tillbaka
-    public static void Run(DataStore<BoardItem> boardStore, DataStore<FamilyMember> memberStore)
+    public static void Run(DataStore<BoardItem> boardStore, DataStore<FamilyMember> familyStore)
     {
         bool running = true;
 
@@ -20,13 +24,24 @@ public static class StatisticsMenu
                     .Title("Statistik - vad vill du se?")
                     .AddChoices(
                         "Timmar per person och vecka",
+                        "Rätter som går att laga i dag",
+                        "Varor som snart går ut",
                         "Tillbaka"
                     ));
 
             switch (choice)
             {
                 case "Timmar per person och vecka":
-                    ShowHours(boardStore, memberStore);
+                    ShowHours(boardStore, familyStore);
+                    Pause.Wait();
+                    break;
+                case "Rätter som går att laga i dag":
+                    ShowCookableRecipes();
+                    Pause.Wait();
+                    break;
+                case "Varor som snart går ut":
+                    ShowExpiringItems();
+                    Pause.Wait();
                     break;
                 case "Tillbaka":
                     running = false;
@@ -36,14 +51,13 @@ public static class StatisticsMenu
     }
 
     // Visar inbokade timmar per person en vald vecka, som tabell och stapeldiagram
-    private static void ShowHours(DataStore<BoardItem> boardStore, DataStore<FamilyMember> memberStore)
+    private static void ShowHours(DataStore<BoardItem> boardStore, DataStore<FamilyMember> familyStore)
     {
-        List<FamilyMember> members = memberStore.GetAll();
+        List<FamilyMember> members = familyStore.GetAll();
 
         if (members.Count == 0)
         {
             Messages.Error("Det finns inga familjemedlemmar än. Lägg till en familjemedlem först.");
-            Pause();
             return;
         }
 
@@ -109,14 +123,166 @@ public static class StatisticsMenu
         if (allHours == 0)
         {
             Messages.Info("Inga arbetspass eller aktiviteter den veckan.");
-        }
-        else
-        {
-            AnsiConsole.WriteLine();
-            AnsiConsole.Write(chart);
+            return;
         }
 
-        Pause();
+        AnsiConsole.WriteLine();
+        AnsiConsole.Write(chart);
+    }
+
+    // Visar hur många rätter som går att laga med det som finns hemma, och vilka
+    private static void ShowCookableRecipes()
+    {
+        List<FoodItem>? foodItems = LoadList<FoodItem>(FoodFile, "matvarorna");
+        List<Recipe>? recipes = LoadList<Recipe>(RecipeFile, "recepten");
+
+        if (foodItems == null || recipes == null)
+        {
+            return;
+        }
+
+        if (recipes.Count == 0)
+        {
+            Messages.Info("Det finns inga recept än.");
+            return;
+        }
+
+        // Bara varor som finns hemma räknas, samma regel som i kylskåpsmenyn
+        List<FoodItem> available = foodItems
+            .Where(item => item.IsAvailable)
+            .ToList();
+
+        // Ett recept går att laga om alla ingredienser finns bland de tillgängliga varorna
+        List<Recipe> cookable = recipes
+            .Where(recipe => recipe.Ingredients.All(ingredient =>
+                available.Any(item => item.Name.Equals(ingredient, StringComparison.OrdinalIgnoreCase))))
+            .OrderBy(recipe => recipe.CookingTimeMinutes)
+            .ToList();
+
+        int notCookable = recipes.Count - cookable.Count;
+
+        BarChart chart = new BarChart()
+            .Width(60)
+            .Label($"[bold]Rätter i dag ({recipes.Count} recept totalt)[/]")
+            .CenterLabel()
+            .AddItem("Kan lagas", cookable.Count, Color.Green)
+            .AddItem("Saknar ingredienser", notCookable, Color.Red);
+
+        AnsiConsole.Write(chart);
+        AnsiConsole.WriteLine();
+
+        if (cookable.Count == 0)
+        {
+            Messages.Info("Inga rätter går att laga med det som finns hemma just nu.");
+            return;
+        }
+
+        Table table = new Table().Border(TableBorder.Rounded);
+        table.AddColumn("Rätt");
+        table.AddColumn(new TableColumn("Tillagningstid").RightAligned());
+
+        foreach (Recipe recipe in cookable)
+        {
+            table.AddRow(Markup.Escape(recipe.Name), $"{recipe.CookingTimeMinutes} min");
+        }
+
+        AnsiConsole.Write(table);
+    }
+
+    // Visar varor vars bäst före-datum har passerat eller snart passerar
+    private static void ShowExpiringItems()
+    {
+        List<FoodItem>? foodItems = LoadList<FoodItem>(FoodFile, "matvarorna");
+
+        if (foodItems == null)
+        {
+            return;
+        }
+
+        // Bara kylvaror har bäst före-datum (skafferivaror har inget)
+        List<FridgeItem> fridgeItems = foodItems.OfType<FridgeItem>().ToList();
+
+        if (fridgeItems.Count == 0)
+        {
+            Messages.Info("Det finns inga varor med bäst före-datum än.");
+            return;
+        }
+
+        DateTime today = DateTime.Today;
+
+        // Samma regel som bäst före-kollen: varan varnas inom sina WarningDays
+        List<FridgeItem> expired = fridgeItems
+            .Where(item => item.ExpirationDate.Date < today)
+            .ToList();
+
+        List<FridgeItem> soon = fridgeItems
+            .Where(item => item.ExpirationDate.Date >= today
+                && item.ExpirationDate.Date <= today.AddDays(item.WarningDays))
+            .ToList();
+
+        int okCount = fridgeItems.Count - expired.Count - soon.Count;
+
+        BarChart chart = new BarChart()
+            .Width(60)
+            .Label($"[bold]Bäst före ({fridgeItems.Count} varor)[/]")
+            .CenterLabel()
+            .AddItem("Passerat", expired.Count, Color.Red)
+            .AddItem("Går snart ut", soon.Count, Color.Yellow)
+            .AddItem("OK", okCount, Color.Green);
+
+        AnsiConsole.Write(chart);
+        AnsiConsole.WriteLine();
+
+        List<FridgeItem> warnings = expired
+            .Concat(soon)
+            .OrderBy(item => item.ExpirationDate)
+            .ToList();
+
+        if (warnings.Count == 0)
+        {
+            Messages.Success("Inga varor behöver kontrolleras just nu.");
+            return;
+        }
+
+        Table table = new Table().Border(TableBorder.Rounded);
+        table.AddColumn("Vara");
+        table.AddColumn("Bäst före");
+        table.AddColumn(new TableColumn("Dagar kvar").RightAligned());
+        table.AddColumn("Status");
+
+        foreach (FridgeItem item in warnings)
+        {
+            int daysLeft = (item.ExpirationDate.Date - today).Days;
+            string status = daysLeft < 0 ? "[red]Passerat[/]" : "[yellow]Går snart ut[/]";
+
+            table.AddRow(
+                Markup.Escape(item.Name),
+                item.ExpirationDate.ToString("yyyy-MM-dd"),
+                daysLeft.ToString(),
+                status);
+        }
+
+        AnsiConsole.Write(table);
+    }
+
+    // Läser en lista från en JSON-fil. Finns ingen fil blir listan tom.
+    // Ger null tillbaka om filen finns men inte går att läsa.
+    private static List<T>? LoadList<T>(string filePath, string what) where T : class
+    {
+        DataStore<T> store = new DataStore<T>(filePath);
+
+        if (!File.Exists(filePath))
+        {
+            return new List<T>();
+        }
+
+        if (!store.LoadFromJson())
+        {
+            Messages.Error($"Kunde inte läsa {what}: {store.LastError}");
+            return null;
+        }
+
+        return store.GetAll();
     }
 
     // Räknar ut måndagen i den vecka som datumet tillhör
@@ -138,12 +304,5 @@ public static class StatisticsMenu
                         : ValidationResult.Error("[red]Använd formatet åååå-mm-dd, till exempel 2026-11-05[/]")));
 
         return DateTime.ParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture);
-    }
-
-    // Väntar på en tangent så att användaren hinner läsa
-    private static void Pause()
-    {
-        AnsiConsole.MarkupLine("[grey]Tryck på valfri tangent för att fortsätta...[/]");
-        Console.ReadKey(true);
     }
 }
