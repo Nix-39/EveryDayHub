@@ -541,7 +541,7 @@ public static class FridgeMenu
 		foreach (var recipe in possibleRecipes)
 		{
 			table.AddRow(
-				recipe.Name,
+				Markup.Escape(recipe.Name),
 				$"{recipe.CookingTimeMinutes} min"
 			);
 		}
