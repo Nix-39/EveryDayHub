@@ -4,7 +4,7 @@ using Spectre.Console;
 
 namespace EveryDayHub.UI;
 
-// Rummet där recept hanteras. En undermeny där man kan visa alla, lägga till, ändra eller ta bort recept.
+// Rummet där recept hanteras. En undermeny där man kan visa alla, söka, lägga till, ändra eller ta bort recept.
 public static class RecipeMenu
 {
 
@@ -25,6 +25,7 @@ public static class RecipeMenu
                 .AddChoices(
                     "Visa alla",
                     "Visa ett recept",
+                    "Sök",
                     "Lägg till",
                     "Ändra",
                     "Ta bort",
@@ -38,6 +39,9 @@ public static class RecipeMenu
                     break;
                 case "Visa ett recept":
                     ShowRecipe(store);
+                    break;
+                case "Sök":
+                    SearchRecipes(store);
                     break;
                 case "Lägg till":
                     AddRecipe(store);
@@ -61,35 +65,50 @@ public static class RecipeMenu
         }
     }
 
-    // Visar alla recept i en tabell. Om listan är tom visas ett meddelande.
+    // Visar alla recept i en tabell, sorterade på Id så ordningen alltid är densamma.
     private static void ShowAll(DataStore<Recipe> store)
     {
-        var recipes = store.GetAll();
+        var recipes = store.GetAll()
+            .OrderBy(r => r.Id)
+            .ToList();
 
-        if (recipes.Count == 0)
+        DisplayTable(recipes);   
+    }
+
+    // Menyval som söker på namn eller ingrediens och sorterar träffarna på tillagningstid.
+    private static void SearchRecipes(DataStore<Recipe> store)
+    {
+        // Enter utan text ger alla recept, så att man kan sortera hela listan på tid.
+        var query = AnsiConsole.Prompt(
+            new TextPrompt<string>("Sök på namn eller ingrediens (Enter för alla:)").AllowEmpty()).Trim();
+
+        // Where släpper igenom recept där namnet eller någon ingrediens innehåller söktexten.
+        // Any blir true om minst en ingrediens matchar. OrdinalIgnoreCase ignorerar gemener och versaler.
+        var matches = store.GetAll()
+            .Where(r => r.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
+            || r.Ingredients.Any(i => i.Contains(query, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        // Vid inga träffar: Visa ett meddelande istället för att fråga om sortering.
+        if (matches.Count == 0)
         {
             AnsiConsole.MarkupLine("[yellow]Inga recept hittades.[/]");
             return;
         }
 
-        var table = new Table();
-        table.AddColumn("Nr");
-        table.AddColumn("Recept");
-        table.AddColumn("Tid");
-        table.AddColumn("Ingredienser");
+        var order = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+            .Title("Sortera på tillagningstid:")
+            .AddChoices("Kortast tid först", "Längst tid först"));
 
-        // OrderBy sorterar på Id så att ordningen är densamma varje gång.
-        foreach (Recipe recipe in recipes.OrderBy(r => r.Id))
-        {
-            table.AddRow(
-                recipe.Id.ToString(),
-                Markup.Escape(recipe.Name),
-                $"{recipe.CookingTimeMinutes} min",
-                // string.Join sätter ihop ingredienslistan till en text med kommatecken emellan.
-                Markup.Escape(string.Join(", ", recipe.Ingredients)));
-        }
+        // OrderBy ger kortast tid först och OrderByDescending längst tid först.
+        // ThenBy sorterar recept med samma tid i bokstavsordning.
+        var sorted = order == "Kortast tid först"
+            ? matches.OrderBy(r => r.CookingTimeMinutes).ThenBy(r => r.Name).ToList()
+            : matches.OrderByDescending(r => r.CookingTimeMinutes).ThenBy(r => r.Name).ToList();
 
-        AnsiConsole.Write(table);
+        AnsiConsole.MarkupLine($"[green]{sorted.Count} recept hittades.[/]");
+        DisplayTable(sorted);
     }
 
     // Menyval som visar ett recept med tidsåtgång, ingredienser och beskrivning.
@@ -341,6 +360,35 @@ public static class RecipeMenu
             .Title(title)
             .UseConverter(r => Markup.Escape(r.Name))
             .AddChoices(recipes.OrderBy(r => r.Id)));
+    }
+
+    // Ritar en tabell för en lista med recept. Både visa alla och sök använder den, så tabellen skrivs bara en gång.
+    private static void DisplayTable(List<Recipe> recipes)
+    {
+        if (recipes.Count == 0)
+        {
+            AnsiConsole.MarkupLine("[yellow]Inga recept hittades.[/]");
+            return;
+        }
+
+        var table = new Table();
+        table.AddColumn("Nr");
+        table.AddColumn("Recept");
+        table.AddColumn("Tid");
+        table.AddColumn("Ingredienser");
+
+        // Listan visas i den ordning den kommer in, så att sorteringen från visa alla eller sök behålls.
+        foreach (Recipe recipe in recipes)
+        {
+            table.AddRow(
+                recipe.Id.ToString(),
+                Markup.Escape(recipe.Name),
+                $"{recipe.CookingTimeMinutes} min",
+                // string.Join sätter ihop ingredienslistan till en text med kommatecken emellan.
+                Markup.Escape(string.Join(", ", recipe.Ingredients)));
+        }
+
+        AnsiConsole.Write(table);
     }
 }
 
