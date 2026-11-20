@@ -1,6 +1,7 @@
 ﻿using EveryDayHub.Models;
 using EveryDayHub.Services;
 using Spectre.Console;
+using System.Runtime.CompilerServices;
 
 namespace EveryDayHub.UI;
 
@@ -29,6 +30,8 @@ public static class RecipeMenu
                     "Lägg till",
                     "Ändra",
                     "Ta bort",
+                    "Ångra",
+                    "Gör om",
                     "Tillbaka"
                     ));
 
@@ -51,6 +54,12 @@ public static class RecipeMenu
                     break;
                 case "Ta bort":
                     RemoveRecipe(store);
+                    break;
+                case "Ångra":
+                    UndoChange(store);
+                    break;
+                case "Gör om":
+                    RedoChange(store);
                     break;
                 case "Tillbaka":
                     running = false;
@@ -317,6 +326,44 @@ public static class RecipeMenu
         {
             AnsiConsole.MarkupLine($"[green]{Markup.Escape(recipe.Name)} har tagits bort.[/]");
         }
+    }
+
+    // Menyval som ångrar den senaste ändringen av recepten.
+    private static void UndoChange(DataStore<Recipe> store)
+    {
+        if (!store.CanUndo)
+        {
+            AnsiConsole.MarkupLine("[yellow]Det finns inget att ångra.[/]");
+            return;
+        }
+
+        if (!store.Undo())
+            {
+            AnsiConsole.MarkupLine($"[red]{Markup.Escape(store.LastError)}[/]");
+        }
+
+        // Tabellen visas direkt så att man ser hur listan ser ut efter ändringen.
+        AnsiConsole.MarkupLine("[green]Senaste ändringen har ångrats.[/]");
+        ShowAll(store);
+    }
+
+    // Menyval som gör om den senaste ångrade ändringen.
+private static void RedoChange(DataStore<Recipe> store)
+    {
+        if (!store.CanRedo)
+        {
+            AnsiConsole.MarkupLine("[yellow]Det finns inget att göra om.[/]");
+            return;
+        }
+
+        if (!store.Redo())
+        {
+            AnsiConsole.MarkupLine($"[red]{Markup.Escape(store.LastError)}[/]");
+            return;
+        }
+
+        AnsiConsole.MarkupLine("[green]Ändringen har gjorts om.[/]}");
+        ShowAll(store);
     }
 
     // Sparar ändringar i JSON-filen och visar eventuella felmeddelanden.
