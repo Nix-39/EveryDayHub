@@ -1,7 +1,6 @@
 ﻿using EveryDayHub.Models;
 using EveryDayHub.Services;
 using Spectre.Console;
-using System.Runtime.CompilerServices;
 
 namespace EveryDayHub.UI;
 
@@ -81,7 +80,7 @@ public static class RecipeMenu
             .OrderBy(r => r.Id)
             .ToList();
 
-        DisplayTable(recipes);   
+        DisplayTable(recipes);
     }
 
     // Menyval som söker på namn eller ingrediens och sorterar träffarna på tillagningstid.
@@ -89,7 +88,7 @@ public static class RecipeMenu
     {
         // Enter utan text ger alla recept, så att man kan sortera hela listan på tid.
         var query = AnsiConsole.Prompt(
-            new TextPrompt<string>("Sök på namn eller ingrediens (Enter för alla:)").AllowEmpty()).Trim();
+            new TextPrompt<string>("Sök på namn eller ingrediens (Enter för alla):").AllowEmpty()).Trim();
 
         // Where släpper igenom recept där namnet eller någon ingrediens innehåller söktexten.
         // Any blir true om minst en ingrediens matchar. OrdinalIgnoreCase ignorerar gemener och versaler.
@@ -338,8 +337,9 @@ public static class RecipeMenu
         }
 
         if (!store.Undo())
-            {
+        {
             AnsiConsole.MarkupLine($"[red]{Markup.Escape(store.LastError)}[/]");
+            return;
         }
 
         // Tabellen visas direkt så att man ser hur listan ser ut efter ändringen.
@@ -348,7 +348,7 @@ public static class RecipeMenu
     }
 
     // Menyval som gör om den senaste ångrade ändringen.
-private static void RedoChange(DataStore<Recipe> store)
+    private static void RedoChange(DataStore<Recipe> store)
     {
         if (!store.CanRedo)
         {
@@ -362,7 +362,7 @@ private static void RedoChange(DataStore<Recipe> store)
             return;
         }
 
-        AnsiConsole.MarkupLine("[green]Ändringen har gjorts om.[/]}");
+        AnsiConsole.MarkupLine("[green]Ändringen har gjorts om.[/]");
         ShowAll(store);
     }
 

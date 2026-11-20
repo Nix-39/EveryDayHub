@@ -29,7 +29,7 @@ namespace EveryDayHub.Services
         // Senaste felmeddelandet från spara eller ladda om allt gick bra är det tomt
         public string LastError { get; private set; } = "";
 
-        // True om det finns något att ångra eller göra om. => är ett kort sätt att skrive en egenskap som bara läses.
+        // True om det finns något att ångra eller göra om. => är ett kort sätt att skriva en egenskap som bara läses.
         public bool CanUndo => _undoStack.Count > 0;
         public bool CanRedo => _redoStack.Count > 0;
 
@@ -66,7 +66,7 @@ namespace EveryDayHub.Services
                 File.WriteAllText(_filePath, json);
 
                 // Den förra versionen läggs på ångra-stacken, men bara om listan faktiskt har ändrats.
-                // En ny ändring gör att det som ändrats inte längra kan göras om, därför töms gör om-stacken.
+                // En ny ändring gör att det som ångrats inte längre kan göras om, därför töms gör om-stacken.
                 if (json != _savedJson)
                 {
                     _undoStack.Push(_savedJson);
@@ -146,7 +146,7 @@ namespace EveryDayHub.Services
             }
         }
 
-        // Går tillbaka till versionen för den senaste sparade ändringen. Returnerar true om det gick bra.
+        // Går tillbaka till versionen före den senast sparade ändringen. Returnerar true om det gick bra.
         public bool Undo()
         {
             if (_undoStack.Count == 0)
@@ -179,7 +179,7 @@ namespace EveryDayHub.Services
         {
             // Om resultatet blir null betyder "??" att en tom lista kommer användas.
             _items.Clear();
-            _items.AddRange(JsonSerializer.Deserialize<List<T>> (json) ?? new List<T>());
+            _items.AddRange(JsonSerializer.Deserialize<List<T>>(json) ?? new List<T>());
             _savedJson = json;
 
             try
@@ -188,7 +188,7 @@ namespace EveryDayHub.Services
                 LastError = "";
                 return true;
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 LastError = $"Kunde inte spara filen {_filePath}: {ex.Message}";
                 return false;
