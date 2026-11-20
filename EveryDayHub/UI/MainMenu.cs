@@ -41,12 +41,12 @@ public static class MainMenu
         var notesMenu = new NotesMenu(notesStore, familyStore);
 
         // Schema: en store för arbetspass och aktiviteter. Personerna kommer från familyStore ovan.
-        var shoppingMenu = new ShoppingMenu(shoppingStore); 
+        var shoppingMenu = new ShoppingMenu(shoppingStore);
         bool running = true;
 
         while (running)  // while (running) upprepar menyn tills någon väljer Avsluta.
         {
-                       StartScreen.Show(notesStore, boardStore);
+            StartScreen.Show(notesStore, boardStore);
 
             var choice = AnsiConsole.Prompt(
                 new SelectionPrompt<string>()   // SelectionPrompt är menyn man styr med piltangenter och Enter.
