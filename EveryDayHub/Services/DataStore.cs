@@ -4,6 +4,7 @@ using System.Text;
 using System.IO;
 using System.Text.Json;
 using System.Security.Cryptography.X509Certificates;
+using System.Runtime.CompilerServices;
 
 namespace EveryDayHub.Services
 {
@@ -155,12 +156,21 @@ namespace EveryDayHub.Services
                 return false;
             }
 
-            // Nuvarande version flyttas till gör om-stacken och den förra versionen hämtas från ångra-stacken.
-            _redoStack.Push(_savedJson);
-            return Restore(_undoStack.Pop());
+            // Nuvarande version sparas undan, eftersom Restore byter ut _savedJsonnär den lyckas.
+            string current = _savedJson;
+
+            // Peek läser den översta versionen utan att ta bort den. Stackarna ändras först när Restore har lyckats, så att ingen version går förlorad om filen inte kunde sparas.
+            if (!Restore(_undoStack.Peek()))
+            {
+                return false;
+            }
+
+            _undoStack.Pop();
+            _redoStack.Push(current);
+            return true;
         }
 
-        // Gör om den senast ångrade ändringen, returnera true om det gick bra.
+        // Gör om den senast ångrade ändringen. Returnerar true om det gick bra.
         public bool Redo()
         {
             if (_redoStack.Count == 0)
@@ -169,28 +179,53 @@ namespace EveryDayHub.Services
                 return false;
             }
 
-            // Samma sak åt andra hållet: nuvarande version till ångra-stacken, nästa hämtas från gör om-stacken.
-            _undoStack.Push(_savedJson);
-            return Restore(_redoStack.Pop());
+            // Samma sak åt andra hållet: stackarna ändras först när Restore har lyckats.
+            string current = _savedJson;
+
+            if (!Restore(_redoStack.Peek()))
+            {
+                return false;
+            }
+
+            _redoStack.Pop();
+            _undoStack.Push(current);
+            return true;
         }
 
         // Byter ut listan mot en sparad version och skriver den till filen.
+        // Det som kan gå fel (läsa JSON och spara filen) görs först. Listan i minnet ändras bara om båda lyckas så att minnet och filen alltid visar samma.
         private bool Restore(string json)
         {
-            // Om resultatet blir null betyder "??" att en tom lista kommer användas.
-            _items.Clear();
-            _items.AddRange(JsonSerializer.Deserialize<List<T>>(json) ?? new List<T>());
-            _savedJson = json;
-
             try
             {
+                // ?? Betyder: blir resultatet null används en tom lista istället.
+                List<T> restored = JsonSerializer.Deserialize<List<T>>(json) ?? new List<T>();
                 File.WriteAllText(_filePath, json);
+
+                _items.Clear();
+                _items.AddRange(restored);
+                _savedJson = json;
                 LastError = "";
                 return true;
             }
+            catch (JsonException ex)
+            {
+                LastError = $"Den sparade versionen gick inte att läsa: {ex.Message}";
+                return false;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                LastError = $"Saknar behörighet att spara filen {_filePath}.";
+                return false;
+            }
+            catch (IOException ex)
+            {
+                LastError = $"Kunde inte skriva till filen {_filePath}: {ex.Message}";
+                return false;
+            }
             catch (Exception ex)
             {
-                LastError = $"Kunde inte spara filen {_filePath}: {ex.Message}";
+                LastError = $"Oväntat fel vid ångra eller göra om; {ex.Message}";
                 return false;
             }
         }
