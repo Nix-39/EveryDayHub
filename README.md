@@ -1,5 +1,7 @@
 # EveryDayHub
+
 A daily family hub with schedules, notes and meals - C# group project
+
 ## Funktioner
 
 ### Dagens översikt – Startsidan
@@ -51,70 +53,134 @@ När en ny lapp skapas kan användaren välja en registrerad familjemedlem som f
 - Om inga familjemedlemmar finns visas ett informationsmeddelande.
 
 Detta minskar risken för felstavade namn och gör hanteringen mer konsekvent.
-### Grund – DataStore<T> och Pause
 
-`DataStore<T>` är den generiska lagringsklassen som alla rum använder för att hålla en lista i minnet och spara den som JSON.
+### Modeller – Lappar och inköp
 
-- `AddItem()`, `RemoveItem()`, `FindItem()` och `GetAll()` hanterar listan. `GetAll()` returnerar en kopia av listan, så att andra klasser inte kan lägga till eller ta bort objekt direkt i den.
-- `SaveToJson()` och `LoadFromJson()` sparar och läser filen med `System.Text.Json`.
-- Fel som saknad fil, saknad behörighet, I/O-fel och ogiltig JSON fångas med `try/catch`. Metoden returnerar då `false` och förklaringen finns i `LastError`.
-- `Pause.Wait()` väntar på en knapptryckning efter varje menyval, så att användaren hinner läsa resultatet.
+Modellerna beskriver den data som lapparna och inköpslistan arbetar med.
 
-**Designmotivering:**
+- `Note` ärver från den abstrakta klassen `BoardItem` och har text, författare, typ och datum. Klassen skriver sin egen `Describe()`.
+- `ShoppingItem` ärver inte från något och har Id, namn, antal (`int`) och en flagga `IsBought`.
+- `Note` är registrerad med `[JsonDerivedType]` i `BoardItem`, så att den fungerar med JSON-lagring.
 
-- **Generisk klass (`where T : class`):** samma kod används för familjemedlemmar, recept, matvaror, lappar och schema, i stället för en lagringsklass per typ.
-- **Lagring och visning är separerade (Single Responsibility):** `DataStore<T>` sköter data och filer, medan UI-klasserna sköter text och färger. Därför skriver `DataStore<T>` aldrig något på skärmen. Den returnerar `true` eller `false`, och menyn visar felet från `LastError` i rött.
+### Modeller – Familj och schema
 
-### Familjen – Familjemedlemmar
+Modellerna beskriver familjemedlemmarna och det som visas i schemat.
 
-Rummet hanterar familjens medlemmar, som sedan används i schemat och som författare till lappar.
+- `FamilyMember` har Id, namn och roll. Övriga klasser kopplas till en person via personens Id.
+- `BoardItem` är en abstrakt basklass med det som alla inlägg har gemensamt: `Id`, `Title`, `Date` och `CreatedById`. Den har den abstrakta metoden `Describe()`.
+- `WorkShift` ärver från `BoardItem` och har person (`FamilyMemberId`), starttid och sluttid. Egenskapen `Hours` räknas ut från `End - Start`.
+- `Activity` ärver från `BoardItem` och har plats, starttid, sluttid och en lista med deltagare (`ParticipantIds`).
+- `WorkShift` och `Activity` skriver var sin `Describe()`, till exempel `Kvällspass: 16:00-22:00 (6 h)` och `Fotboll på Heden, 18:00-19:30`.
+- `BoardItem` har `[JsonPolymorphic]` och `[JsonDerivedType]`, så att varje objekt får en `"type"`-rad i JSON-filen och återskapas som rätt subklass vid inläsning.
 
-- **Visa:** alla familjemedlemmar i en tabell.
-- **Lägg till:** namnet får inte vara tomt. Nytt Id blir högsta befintliga Id + 1.
-- **Ändra:** nytt namn, eller Enter för att behålla det gamla.
-- **Ta bort:** kräver bekräftelse, och Nej är förvalt så att ingen tas bort av misstag.
+### Färgade meddelanden
 
-Funktionen finns i `UI/FamilyMenu.cs` och `Models/FamilyMember.cs` och sparas i `Data/familymembers.json`. Valet av person görs med `SelectionPrompt<FamilyMember>` och `UseConverter()`, och namnen visas med `Markup.Escape()` så att tecken som `[ ]` inte får programmet att krascha.
+Klassen `Messages` (`UI/Messages.cs`) används av hela programmet för att visa meddelanden på samma sätt.
 
-### Recept – Receptrummet
+- `Messages.Error` skriver `Fel:` i rött, till exempel i `catch`-block.
+- `Messages.Success` skriver `Klart:` i grönt.
+- `Messages.Info` skriver `Info:` i turkost.
+- Texten skyddas med `Markup.Escape()` så att specialtecken som `[ ]` inte tolkas som färgkoder.
 
-Receptrummet låter familjen visa, lägga till, ändra och ta bort recept.
+### Lappar – Visa, lägg till, ändra och ta bort
 
-- **Visa alla:** tabell med nummer, namn, tillagningstid och ingredienser, sorterad på Id.
-- **Visa ett recept:** en ram (`Panel`) med tillagningstid, ingredienserna på egna rader och beskrivningen.
-- **Lägg till:** namn, tid i minuter, ingredienser separerade med komma och beskrivning.
-- **Ändra:** Enter behåller det nuvarande värdet i varje fält.
-- **Ta bort:** kräver bekräftelse, och Nej är förvalt.
+Lappmenyn (`UI/NotesMenu.cs`) innehåller de fyra grundfunktionerna (CRUD).
 
-All inmatning kontrolleras innan något ändras: tomt namn, namn som redan finns (oavsett versaler och gemener), tid som inte är ett heltal större än 0, minst en ingrediens och tom beskrivning. Ett fel lämnar därför aldrig ett recept halvändrat.
+- Lapparna visas i en Spectre.Console-tabell med typ, text, författare och datum.
+- En ny lapp skapas med typ, text och författare. Datumet sätts automatiskt.
+- Ändra och ta bort delar hjälpmetoden `PickNote`, där användaren väljer lapp med piltangenterna.
+- Texten skyddas med `Markup.Escape()` så att specialtecken som `[ ]` visas korrekt.
+- Om det inte finns några lappar visas ett meddelande i stället för en tom tabell.
 
-Ingredienserna delas upp av hjälpmetoden `ParseIngredients()`, som använder `Split()` med `TrimEntries` och `RemoveEmptyEntries`, gör om texten till små bokstäver och tar bort dubbletter med `Distinct()`. Då matchar de kylskåpets matvaror i "Vad kan vi laga?".
+### Lappar – Sök, filtrera och sortera
 
-Funktionen finns i `UI/RecipeMenu.cs` och `Models/Recipe.cs`. Recepten sparas i `Data/recipes.json`, samma fil som Kylskåpet och startsidan läser, så ändringar syns direkt där.
+Undermenyn "Sök och filtrera" använder LINQ.
 
-### Recept – Sök och sortera
+- **Sök på text:** `Where()` med `Contains()`. Sökningen skiljer inte på stora och små bokstäver.
+- **Filtrera på person och typ:** `Select()`, `Distinct()` och `OrderBy()` tar fram valbara värden, och `Where()` behåller lappar som matchar. Samma metod används för båda, genom att skicka in vilken egenskap som ska användas.
+- **Sortera på datum:** `OrderByDescending()` (nyast först) eller `OrderBy()` (äldst först).
+- Tabellen ritas av en gemensam hjälpmetod, `DisplayTable`, så att koden inte upprepas.
 
-- Sök på en del av ett receptnamn eller en ingrediens, oavsett versaler och gemener.
-- En tom sökning visar alla recept, så att hela listan kan sorteras.
-- Sortera på tillagningstid med kortast eller längst tid först. Recept med samma tid sorteras i bokstavsordning.
-- Antalet träffar visas. Om inget recept matchar visas ett gult meddelande.
+### Laddning och sparning
 
-Implementationen använder LINQ-metoderna `Where()`, `Any()`, `OrderBy()`, `OrderByDescending()` och `ThenBy()`, samt `Contains()` med `StringComparison.OrdinalIgnoreCase`. Tabellen ritas av hjälpmetoden `DisplayTable()`, som delas med "Visa alla" så att tabellkoden bara finns på ett ställe.
+Data sparas som JSON och läses in när programmet startar (`Program.cs`).
 
-### Recept – Ångra och gör om
+- Vid start laddas lappar och inköpslistan med en progress bar (`AnsiConsole.Progress()`).
+- Vid avslut sparas allt med en spinner (`AnsiConsole.Status()`).
+- Filerna `notes.json` och `shopping.json` ligger i mappen `Data` bredvid programmet.
+- Första körningen finns ingen fil, och då startar listorna tomma utan fel.
+- Om laddning eller sparning misslyckas visas felet i rött, och programmet kraschar inte.
+- Mappen `Data` skapas automatiskt om den saknas.
 
-- **Ångra** går tillbaka till listan som den såg ut före den senaste ändringen (lägga till, ändra eller ta bort). Det går att ångra flera steg i rad.
-- **Gör om** återställer det som ångrats. En ny ändring efter en ångring tömmer gör om-historiken.
-- Efter varje ångring och omgörning visas receptlistan, så att resultatet syns direkt.
-- Finns det inget att ångra eller göra om visas ett gult meddelande.
+### Inköpslistan
 
-**Designmotivering:**
+Inköpslistan (`UI/ShoppingMenu.cs`) använder samma mönster som lappmenyn.
 
-- **I `DataStore<T>`:** funktionen ligger i lagringsklassen och inte i menyn, så att andra rum kan få den med två nya menyval.
-- **Två `Stack<string>`:** en stack lämnar ut den senast tillagda versionen först, vilket är precis den ordning som behövs för att ångra.
-- **JSON-text i stället för en kopia av listan:** Ändra ändrar receptobjekten direkt. En kopia av listan skulle peka på samma objekt och ändras den också, medan JSON-texten är en fast ögonblicksbild.
-- **Bara verkliga ändringar sparas som en ny version**, så en sparning utan ändring ger inget tomt ångra-steg.
-- **Minnet och filen hålls i takt:** `Restore()` läser versionen och skriver filen först, och ändrar listan i minnet och stackarna först när båda stegen har lyckats. Misslyckas sparningen visas ett rött fel och ingenting ändras.
+- Varor kan visas, läggas till, bockas av (och ångras) och tas bort.
+- Listan visas i en tabell med bock, namn och antal.
+- Antal läses in som heltal, och användaren får fråga igen om något annat skrivs.
+- Varje vara får ett eget Id (högsta befintliga Id + 1).
+- Meddelanden skrivs med klassen `Messages`, så att utseendet är detsamma i hela programmet.
+- Listan sparas och laddas tillsammans med lapparna.
+
+### Schemat – Visa, lägg till, ändra och ta bort
+
+Schemamenyn (`UI/ScheduleMenu.cs`) hanterar familjens arbetspass och aktiviteter.
+
+- **Visa veckan:** en tabell med en rad per person och en kolumn per dag. Arbetspass visas i gult och aktiviteter i turkost.
+- **Lägg till arbetspass:** välj person, rubrik, datum, starttid och sluttid.
+- **Lägg till aktivitet:** rubrik, plats, datum, tider och en eller flera deltagare (`MultiSelectionPrompt`).
+- **Ändra:** nuvarande värde visas, och Enter behåller det.
+- **Ta bort:** kräver bekräftelse. Ja/nej-frågor är en meny där Nej står först, så att Enter alltid är det säkra valet.
+- Datum och klockslag kontrolleras med `Validate`, och sluttiden måste vara efter starttiden.
+- Ändra och ta bort delar hjälpmetoden `ChooseItem`, där användaren väljer pass eller aktivitet med piltangenterna.
+- Om det inte finns några familjemedlemmar visas ett felmeddelande i stället.
+
+### Schemat – Filtrera och vem är ledig
+
+Schemat kan filtreras med LINQ.
+
+- **Filtrera schemat:** välj en person (eller Alla) och om man vill en viss dag. Varje filter är en `Where()`, och resultatet sorteras med `OrderBy()` och visas i en tabell.
+- **Vem är ledig?:** välj en dag. Varje person visas som Ledig (grönt) eller Upptagen (rött) med det som är bokat. En person är ledig om inget pass eller ingen aktivitet den dagen gäller personen.
+- `OfType<WorkShift>()` och `OfType<Activity>()` plockar ut rätt sorts inlägg ur den gemensamma listan.
+
+### Statistik
+
+Statistikmenyn (`UI/StatisticsMenu.cs`) visar sammanfattningar med `BarChart`.
+
+- **Timmar per person och vecka:** summerar arbetspass (`Hours`) och aktiviteter per person med `Sum()`, och visar en tabell och ett stapeldiagram.
+- **Rätter som går att laga i dag:** antal recept som kan lagas jämfört med antal som saknar ingredienser, och en lista över dem som kan lagas.
+- **Varor som snart går ut:** antal varor som har passerat, går ut snart eller är OK, och en lista över dem som behöver kontrolleras.
+- Statistiken läser `fooditems.json` och `recipes.json` och använder samma regler som kylskåpet (`IsAvailable` och `WarningDays`), så kylskåpsmenyn behövde inte ändras.
+
+### Specialtecken (Issue #54)
+
+Bocken i inköpslistan visades som `?` på vissa datorer.
+
+- `Console.OutputEncoding = System.Text.Encoding.UTF8;` ligger först i `Main`, innan något skrivs ut.
+- Specialtecken som ✓ och å, ä, ö visas nu rätt i hela programmet.
+
+### Huvudmenyn
+
+Huvudmenyn (`UI/MainMenu.cs`) är en loop med en `SelectionPrompt` och en `switch` som skickar användaren vidare till respektive meny. Loopen avslutas när användaren väljer Avsluta.
+
+### Designval – Lappar och inköp
+
+- **Generiska `DataStore<T>`:** samma klass lagrar lappar, varor och recept utan att koden skrivs om för varje typ.
+- **Gemensamma datalådor:** lådorna skapas en gång och skickas in i menyerna, så att menyerna och sparningen arbetar mot samma data.
+- **Hjälpmetoder (`PickNote`, `DisplayTable`):** koden som flera funktioner behöver skrivs en gång.
+- **LINQ för sökning:**
+
+### Designval – Schema, statistik och meddelanden
+
+- **Abstrakt `BoardItem`:** ett tomt inlägg kan aldrig skapas, och gemensamma fält skrivs bara en gång.
+- **Polymorfism med `Describe()`:** schemat kan lägga pass och aktiviteter i samma lista och anropa `Describe()` utan att veta vilken sort varje objekt är.
+- **`Hours` räknas ut:** timmarna sparas inte separat, så de kan aldrig bli fel när tiderna ändras.
+- **`[JsonPolymorphic]` och `[JsonDerivedType]`:** pass och aktiviteter sparas i samma fil och återskapas ändå som rätt klass.
+- **Statisk `Messages`-klass:** klassen behöver inte komma ihåg något, så alla kan anropa den direkt, och meddelandena ser likadana ut överallt.
+- **Gemensamma datalådor:** `boardStore` och `familyStore` skapas i `MainMenu` och skickas till schemat och statistiken, så att de ser samma familjemedlemmar och samma pass.
+- **Inga halvändrade objekt:** vid ändring skrivs svaren in i objektet först när alla frågor är besvarade.
+- **Svenska texter, engelska namn:** allt användaren ser och alla kommentarer är på svenska, medan namn i koden är på engelska. Format som datorn läser (`yyyy-MM-dd`, `HH:mm`) är oförändrade.
 
 ### Teknik
 
@@ -131,6 +197,14 @@ Funktionerna har testats manuellt under utvecklingen. Genomförda kontroller omf
 - Val av familjemedlem som författare.
 - Hantering av specialtecken i receptnamn.
 - Lyckade byggen med `dotnet build`.
+- Lägga till, visa, ändra och ta bort lappar och varor.
+- Sökning på text, filtrering på person och typ, och sortering på datum.
+- Att lappar och varor ligger kvar efter att programmet stängts och startats igen.
+- Hantering av tom lista och ogiltig inmatning av antal.
+- Lägga till, visa, ändra och ta bort arbetspass och aktiviteter, och att veckotabellen visar dem i rätt ruta.
+- Felaktigt datum eller klockslag, och sluttid före starttid.
+- Filtrering på person och dag, och vem som är ledig en viss dag.
+- Statistik för timmar, rätter som går att laga och varor som snart går ut.
+- Att bocken i inköpslistan visas rätt efter UTF-8-ändringen.
 
-**Kända begränsningar:** Receptmatchningen tar inte hänsyn till ingrediensmängder. Startsidan visar endast det första matchande middagsförslaget. Visning av ett faktiskt arbetspass eller en aktivitet på startsidan har ännu inte verifierats manuellt.
-Ingredienser jämförs som text, så "tomat" och "tomater" räknas som olika ingredienser. Ångra och gör om finns i receptrummet, och historiken nollställs när programmet startas om. Två familjemedlemmar kan ha samma namn.
+**Kända begränsningar:** Receptmatchningen tar inte hänsyn till ingrediensmängder. Startsidan visar endast det första matchande middagsförslaget. Visning av ett faktiskt arbetspass eller en aktivitet på startsidan har ännu inte verifierats manuellt. Arbetspass och aktiviteter kan inte gå över midnatt. Programmet har ingen inloggning, så `CreatedById` sätts till den som jobbar passet eller den första deltagaren i aktiviteten.
