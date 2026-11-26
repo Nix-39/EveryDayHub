@@ -29,6 +29,8 @@ public static class RecipeMenu
                     "Lägg till",
                     "Ändra",
                     "Ta bort",
+                    "Ångra",
+                    "Gör om",
                     "Tillbaka"
                     ));
 
@@ -52,6 +54,12 @@ public static class RecipeMenu
                 case "Ta bort":
                     RemoveRecipe(store);
                     break;
+                case "Ångra":
+                    UndoChange(store);
+                    break;
+                case "Gör om":
+                    RedoChange(store);
+                    break;
                 case "Tillbaka":
                     running = false;
                     break;
@@ -72,7 +80,7 @@ public static class RecipeMenu
             .OrderBy(r => r.Id)
             .ToList();
 
-        DisplayTable(recipes);   
+        DisplayTable(recipes);
     }
 
     // Menyval som söker på namn eller ingrediens och sorterar träffarna på tillagningstid.
@@ -80,7 +88,7 @@ public static class RecipeMenu
     {
         // Enter utan text ger alla recept, så att man kan sortera hela listan på tid.
         var query = AnsiConsole.Prompt(
-            new TextPrompt<string>("Sök på namn eller ingrediens (Enter för alla:)").AllowEmpty()).Trim();
+            new TextPrompt<string>("Sök på namn eller ingrediens (Enter för alla):").AllowEmpty()).Trim();
 
         // Where släpper igenom recept där namnet eller någon ingrediens innehåller söktexten.
         // Any blir true om minst en ingrediens matchar. OrdinalIgnoreCase ignorerar gemener och versaler.
@@ -317,6 +325,45 @@ public static class RecipeMenu
         {
             AnsiConsole.MarkupLine($"[green]{Markup.Escape(recipe.Name)} har tagits bort.[/]");
         }
+    }
+
+    // Menyval som ångrar den senaste ändringen av recepten.
+    private static void UndoChange(DataStore<Recipe> store)
+    {
+        if (!store.CanUndo)
+        {
+            AnsiConsole.MarkupLine("[yellow]Det finns inget att ångra.[/]");
+            return;
+        }
+
+        if (!store.Undo())
+        {
+            AnsiConsole.MarkupLine($"[red]{Markup.Escape(store.LastError)}[/]");
+            return;
+        }
+
+        // Tabellen visas direkt så att man ser hur listan ser ut efter ändringen.
+        AnsiConsole.MarkupLine("[green]Senaste ändringen har ångrats.[/]");
+        ShowAll(store);
+    }
+
+    // Menyval som gör om den senaste ångrade ändringen.
+    private static void RedoChange(DataStore<Recipe> store)
+    {
+        if (!store.CanRedo)
+        {
+            AnsiConsole.MarkupLine("[yellow]Det finns inget att göra om.[/]");
+            return;
+        }
+
+        if (!store.Redo())
+        {
+            AnsiConsole.MarkupLine($"[red]{Markup.Escape(store.LastError)}[/]");
+            return;
+        }
+
+        AnsiConsole.MarkupLine("[green]Ändringen har gjorts om.[/]");
+        ShowAll(store);
     }
 
     // Sparar ändringar i JSON-filen och visar eventuella felmeddelanden.
